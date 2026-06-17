@@ -1,0 +1,37 @@
+# Odoo
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+*.swp
+*.log
+*.sqlite3
+*.db
+*.dump
+*.zip
+*.tar.gz
+*.egg-info/
+
+# Odoo runtime files
+.odoo/
+filestore/
+sessions/
+
+# Build / cache
+.eggs/
+dist/
+build/
+.coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# JS / frontend
+node_modules/
+.npm/
+.eslintcache
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
