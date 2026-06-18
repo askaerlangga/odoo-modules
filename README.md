@@ -7,14 +7,14 @@ This repository contains a collection of custom Odoo modules developed to add va
 | Module Name | Technical Name | Description | Version |
 | :--- | :--- | :--- | :--- |
 | **Report Domain Visibility** | `ae_report_domain_visibility` | Odoo 18 backport: provides the ability to hide or filter the *Print* menu based on a domain in `ir.actions.report`. | [17.0.1.0.0](../../tree/17.0/ae_report_domain_visibility) |
-| **Datepicker Dynamic Limit** | `ae_datepicker_limit` | Adds support for `min_date_field` and `max_date_field` options on date/datetime fields in the web client to dynamically limit the selectable date range. | [17.0.1.0.0](../../tree/17.0/ae_datepicker_limit) |
+| **Datepicker Dynamic Limit** | `ae_datepicker_limit` | Adds support for `min_date_field` and `max_date_field` options on date/datetime fields in the web client to dynamically limit the selectable date range. | [17.0.1.0.0](../../tree/17.0/ae_datepicker_limit) · [18.0.1.0.0](../../tree/18.0/ae_datepicker_limit) |
 
 > [!TIP]
 > To download a specific module folder individually, you can use the [GitHub Directory Downloader](https://www.askaerlangga.my.id/github-directory-downloader/).
 
 ## Branches by Odoo Version
 
-To access and download the code for a specific version, please switch to the corresponding branch (e.g., [`17.0`](../../tree/17.0)).
+To access and download the code for a specific version, please switch to the corresponding branch (e.g., [`17.0`](../../tree/17.0), [`18.0`](../../tree/18.0)).
 
 ## Installation
 
