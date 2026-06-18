@@ -77,9 +77,9 @@ This module patches ``DateTimeField`` and field descriptors:
 Tests
 =====
 
-QUnit tests are provided in:
+Hoot tests are provided in:
 
-- ``ae_datepicker_limit/static/tests/datetime_field_limit_tests.js``
+- ``ae_datepicker_limit/static/tests/datetime_field_limit.test.js``
 
 These tests cover both the option wiring and the reactive datepicker
 behavior when the referenced field value changes.
