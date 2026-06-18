@@ -1,5 +1,3 @@
-/** @odoo-module **/
-
 import { onWillRender } from "@odoo/owl";
 import { patch } from "@web/core/utils/patch";
 import {
