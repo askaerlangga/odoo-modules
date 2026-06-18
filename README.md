@@ -14,7 +14,10 @@ This repository contains a collection of custom Odoo modules developed to add va
 
 ## Installation
 
-1. Clone or download this repository to your Odoo server.
+1. Clone the specific Odoo version branch (e.g., `17.0`):
+   ```bash
+   git clone -b 17.0 https://github.com/your-username/odoo-modules.git
+   ```
 2. Add the path of this repository folder to the `addons_path` parameter in your Odoo configuration file (`odoo.conf`).
 3. Restart the Odoo service.
 4. Activate **Developer Mode**, then navigate to **Apps** > **Update Apps List**.
