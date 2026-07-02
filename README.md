@@ -8,6 +8,7 @@ This repository contains a collection of custom Odoo modules developed to add va
 | :--- | :--- | :--- | :--- |
 | [**Report Domain Visibility**](./ae_report_domain_visibility) | `ae_report_domain_visibility` | Odoo 18 backport: provides the ability to hide or filter the *Print* menu based on a domain in `ir.actions.report`. | 17.0.1.0.0 |
 | [**Datepicker Dynamic Limit**](./ae_datepicker_limit) | `ae_datepicker_limit` | Adds support for `min_date_field` and `max_date_field` options on date/datetime fields in the web client to dynamically limit the selectable date range. | 17.0.1.0.0 |
+| [**X2many Search Bar**](./ae_x2many_search) | `ae_x2many_search` | Adds a client-side search bar and group by button above `one2many` / `many2many` tree views in notebook pages. Supports field-scoped filtering with filter chips, and client-side grouping with collapse/expand per group. | 17.0.1.0.0 |
 
 > [!TIP]
 > To download a specific module folder individually, you can use the [GitHub Directory Downloader](https://www.askaerlangga.my.id/github-directory-downloader/).

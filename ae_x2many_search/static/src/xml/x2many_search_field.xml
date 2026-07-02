@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <!-- Custom Rows template with group header support -->
+    <t t-name="ae_x2many_search.ListRenderer.Rows">
+        <t t-if="!list.isGrouped">
+            <t t-set="lastGroupKey" t-value="undefined"/>
+            <t t-foreach="list.records" t-as="record" t-key="record.id">
+                <t t-if="props.groupField">
+                    <t t-set="currentGroupKey" t-value="this.getGroupValue(record)"/>
+                    <t t-if="currentGroupKey !== lastGroupKey">
+                        <tr class="o_x2m_group_header_row" t-on-click="() => this.onToggleGroup(currentGroupKey)">
+                            <td t-att-colspan="nbCols" class="o_x2m_group_header_cell">
+                                <i t-att-class="'fa me-2 ' + (this.isGroupCollapsed(currentGroupKey) ? 'fa-caret-right' : 'fa-caret-down')"/>
+                                <span class="o_x2m_group_header_label"><t t-esc="currentGroupKey"/></span>
+                                <span class="o_x2m_group_header_count"><t t-esc="this.getGroupCount(currentGroupKey)"/></span>
+                            </td>
+                        </tr>
+                        <t t-set="lastGroupKey" t-value="currentGroupKey"/>
+                    </t>
+                    <t t-if="!this.isGroupCollapsed(currentGroupKey)">
+                        <t t-call="{{ constructor.recordRowTemplate }}"/>
+                    </t>
+                </t>
+                <t t-else="">
+                    <t t-call="{{ constructor.recordRowTemplate }}"/>
+                </t>
+            </t>
+            <tr t-if="displayRowCreates">
+                <td t-if="withHandleColumn"/>
+                <td t-att-colspan="withHandleColumn ? nbCols - 1 : nbCols"
+                    class="o_field_x2many_list_row_add"
+                    t-on-keydown="(ev) => this.onCellKeydown(ev, null)"
+                >
+                    <t t-foreach="creates" t-as="create" t-key="create_index">
+                        <a
+                            t-if="create.type === 'create'"
+                            href="#"
+                            role="button"
+                            t-att-class="create_index !== 0 ? 'ml16' : ''"
+                            t-att-tabindex="editedRecord ? '-1' : '0'"
+                            t-on-click.stop.prevent="() => this.add({ context: create.context })"
+                        >
+                            <t t-esc="create.string"/>
+                        </a>
+                        <ViewButton
+                            t-if="create.type === 'button'"
+                            className="`${create.className} ${create_index !== 0 ? 'ml16' : ''}`"
+                            clickParams="create.clickParams"
+                            icon="create.icon"
+                            record="props.list"
+                            string="create.string"
+                            title="create.title"
+                            tabindex="editedRecord ? '-1' : '0'"
+                        />
+                    </t>
+                </td>
+            </tr>
+            <t t-if="!props.list.isGrouped">
+                <tr t-foreach="getEmptyRowIds" t-as="emptyRowId" t-key="emptyRowId">
+                    <td t-att-colspan="nbCols">&#8203;</td>
+                </tr>
+            </t>
+        </t>
+        <t t-else="">
+            <t t-foreach="list.groups" t-as="group" t-key="group.id">
+                <t t-call="{{ constructor.groupRowTemplate }}"/>
+            </t>
+        </t>
+    </t>
+
+    <t t-name="ae_x2many_search.X2ManySearchField">
+        <div t-att-class="className">
+            <div class="o_x2m_control_panel o_x2m_search_control_panel d-empty-none">
+
+                <!-- Search bar -->
+                <div class="o_x2m_search_bar_wrapper" t-ref="searchWrapper">
+                    <div class="o_x2m_search_bar input-group" t-att-class="searchState.activeFilter ? 'is-active' : ''">
+                        <span class="input-group-text bg-transparent border-end-0 pe-1">
+                            <i class="fa fa-search text-muted"/>
+                        </span>
+                        <t t-if="searchState.activeFilter">
+                            <div class="o_x2m_filter_chip align-self-center">
+                                <t t-if="searchState.activeFilter.fieldLabel">
+                                    <span class="o_x2m_filter_pill">
+                                        <t t-esc="searchState.activeFilter.fieldLabel"/>
+                                    </span>
+                                </t>
+                                <span class="o_x2m_filter_value">
+                                    <t t-esc="searchState.activeFilter.query"/>
+                                </span>
+                                <button type="button" class="o_x2m_filter_remove" t-on-mousedown.prevent="onClearFilter" aria-label="Clear filter">
+                                    <i class="fa fa-times"/>
+                                </button>
+                            </div>
+                        </t>
+                        <input
+                            type="text"
+                            class="form-control border-start-0 ps-1 o_x2m_search_input"
+                            t-att-placeholder="searchState.activeFilter ? '' : searchPlaceholder"
+                            t-att-value="searchState.inputValue"
+                            t-on-input="onSearchInput"
+                            t-on-focus="onSearchFocus"
+                            t-on-keydown="onSearchKeydown"
+                            autocomplete="off"
+                        />
+                    </div>
+
+                    <div t-if="searchState.showDropdown" class="o_x2m_search_dropdown">
+                        <div class="o_x2m_search_dropdown_label">Search by</div>
+                        <t t-foreach="dropdownSuggestions" t-as="suggestion" t-key="suggestion.fieldName">
+                            <button
+                                type="button"
+                                class="o_x2m_search_dropdown_item"
+                                t-att-class="searchState.focusedIndex === suggestion_index ? 'focused' : ''"
+                                t-on-mousedown.prevent="() => this.onSelectField(suggestion.fieldName)"
+                            >
+                                <i class="fa fa-tag me-2 o_x2m_search_dropdown_icon"/>
+                                <span class="o_x2m_search_dropdown_field"><t t-esc="suggestion.label"/></span>
+                                <span class="o_x2m_search_dropdown_hint ms-auto">
+                                    <i class="fa fa-level-down fa-rotate-90"/>
+                                </span>
+                            </button>
+                        </t>
+                    </div>
+                </div>
+
+                <!-- Group By button -->
+                <div class="o_x2m_groupby_wrapper" t-ref="groupWrapper">
+                    <button
+                        type="button"
+                        class="o_x2m_groupby_btn btn btn-secondary btn-sm"
+                        t-att-class="groupState.activeField ? 'active' : ''"
+                        t-on-click="onToggleGroupDropdown"
+                    >
+                        <i class="fa fa-bars me-1"/>
+                        <t t-if="groupState.activeField">
+                            <t t-esc="activeGroupLabel"/>
+                            <i class="fa fa-times ms-2 o_x2m_groupby_clear" t-on-click.stop="onClearGroupBy"/>
+                        </t>
+                        <t t-else="">Group By</t>
+                    </button>
+
+                    <div t-if="groupState.showDropdown" class="o_x2m_search_dropdown o_x2m_groupby_dropdown">
+                        <div class="o_x2m_search_dropdown_label">Group by</div>
+                        <t t-foreach="groupByFields" t-as="field" t-key="field.fieldName">
+                            <button
+                                type="button"
+                                class="o_x2m_search_dropdown_item"
+                                t-att-class="groupState.activeField === field.fieldName ? 'active' : ''"
+                                t-on-mousedown.prevent="() => this.onSelectGroupBy(field.fieldName)"
+                            >
+                                <i class="fa fa-object-group me-2 o_x2m_search_dropdown_icon"/>
+                                <span class="o_x2m_search_dropdown_field"><t t-esc="field.label"/></span>
+                                <i t-if="groupState.activeField === field.fieldName" class="fa fa-check ms-auto text-primary"/>
+                            </button>
+                        </t>
+                    </div>
+                </div>
+
+                <t t-if="displayControlPanelButtons">
+                    <div class="o_cp_buttons gap-1" role="toolbar" aria-label="Control panel buttons" t-ref="buttons">
+                        <t t-foreach="creates" t-as="create" t-key="create_index">
+                            <button
+                                t-if="create.type === 'create'"
+                                type="button"
+                                class="btn btn-secondary"
+                                t-att-class="create.class"
+                                t-on-click.stop.prevent="() => this.onAdd({ context: create.context })"
+                            >
+                                <t t-esc="create.string"/>
+                            </button>
+                            <ViewButton
+                                t-if="create.type === 'button'"
+                                className="`${create.className}`"
+                                clickParams="create.clickParams"
+                                icon="create.icon"
+                                record="props.record.data[props.name]"
+                                string="create.string"
+                                title="create.title"
+                            />
+                        </t>
+                    </div>
+                </t>
+
+                <div t-if="props.record.data[props.name].count > props.record.data[props.name].limit" class="o_cp_pager" role="search">
+                    <Pager t-props="pagerProps"/>
+                </div>
+            </div>
+
+            <ListRenderer t-if="props.viewMode === 'list'" t-props="this.rendererProps"/>
+            <KanbanRenderer t-elif="props.viewMode" t-props="this.rendererProps"/>
+        </div>
+    </t>
+
+</templates>
