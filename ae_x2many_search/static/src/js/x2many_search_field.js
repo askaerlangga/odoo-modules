@@ -4,13 +4,9 @@ import { _t } from "@web/core/l10n/translation";
 import { registry } from "@web/core/registry";
 import { X2ManyField, x2ManyField } from "@web/views/fields/x2many/x2many_field";
 import { ListRenderer } from "@web/views/list/list_renderer";
-import { useState, useRef, useEffect, markRaw } from "@odoo/owl";
+import { useState, useRef, useEffect, onWillUpdateProps, markRaw } from "@odoo/owl";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function getFieldStringValue(record, fieldName) {
+export function getFieldStringValue(record, fieldName) {
     const val = record.data[fieldName];
     if (val === undefined || val === null || val === false) {
         return null;
@@ -46,48 +42,39 @@ function buildListProxy(list, records) {
     );
 }
 
-// ---------------------------------------------------------------------------
-// X2ManySearchListRenderer
-// ---------------------------------------------------------------------------
+const GROUP_PROPS = ["groupField?", "collapsedGroups?", "groupCounts?", "onToggleGroup?"];
 
-export class X2ManySearchListRenderer extends ListRenderer {
-    static rowsTemplate = "ae_x2many_search.ListRenderer.Rows";
-
+const GroupMethods = {
     getGroupValue(record) {
         const { groupField } = this.props;
         if (!groupField) {
             return null;
         }
         return getFieldStringValue(record, groupField) || _t("(empty)");
-    }
-
+    },
     isGroupCollapsed(groupKey) {
         return !!(this.props.collapsedGroups || {})[groupKey];
-    }
-
+    },
     onToggleGroup(groupKey) {
         this.props.onToggleGroup?.(groupKey);
-    }
-
+    },
     getGroupCount(groupKey) {
         return this.props.groupCounts?.[groupKey] ?? 0;
-    }
-}
-
-X2ManySearchListRenderer.template = ListRenderer.template;
-X2ManySearchListRenderer.recordRowTemplate = ListRenderer.recordRowTemplate;
-X2ManySearchListRenderer.groupRowTemplate = ListRenderer.groupRowTemplate;
-X2ManySearchListRenderer.props = {
-    ...ListRenderer.props,
-    groupField: { type: String, optional: true },
-    collapsedGroups: { type: Object, optional: true },
-    groupCounts: { type: Object, optional: true },
-    onToggleGroup: { type: Function, optional: true },
+    },
 };
 
-// ---------------------------------------------------------------------------
-// X2ManySearchField
-// ---------------------------------------------------------------------------
+function makeSearchListRenderer(BaseListRenderer) {
+    class SearchListRenderer extends BaseListRenderer {}
+    Object.assign(SearchListRenderer.prototype, GroupMethods);
+    SearchListRenderer.template = BaseListRenderer.template;
+    SearchListRenderer.recordRowTemplate = BaseListRenderer.recordRowTemplate;
+    SearchListRenderer.groupRowTemplate = BaseListRenderer.groupRowTemplate;
+    SearchListRenderer.rowsTemplate = "ae_x2many_search.ListRenderer.Rows";
+    SearchListRenderer.props = [...BaseListRenderer.props, ...GROUP_PROPS];
+    return SearchListRenderer;
+}
+
+export const X2ManySearchListRenderer = makeSearchListRenderer(ListRenderer);
 
 export class X2ManySearchField extends X2ManyField {
     static template = "ae_x2many_search.X2ManySearchField";
@@ -98,12 +85,10 @@ export class X2ManySearchField extends X2ManyField {
     static props = {
         ...X2ManyField.props,
         searchFields: { type: Array, optional: true },
-        placeholder: { type: String, optional: true },
     };
     static defaultProps = {
         ...(X2ManyField.defaultProps || {}),
         searchFields: [],
-        placeholder: "",
     };
 
     setup() {
@@ -119,12 +104,11 @@ export class X2ManySearchField extends X2ManyField {
             showDropdown: false,
             collapsedGroups: {},
         });
+        this.facetOrder = useState({ order: [] });
         this.searchWrapperRef = useRef("searchWrapper");
         this.groupWrapperRef = useRef("groupWrapper");
 
-        this._fieldLabelCache = null;
-        this._searchFieldsCache = null;
-        this._fieldListCache = null;
+        this._invalidateFieldCaches();
 
         this._filterProxyKey = null;
         this._filterProxy = null;
@@ -134,11 +118,20 @@ export class X2ManySearchField extends X2ManyField {
         this._groupCounts = null;
 
         this._onToggleGroup = (groupKey) => {
+            const collapsed = this.groupState.collapsedGroups;
             this.groupState.collapsedGroups = {
-                ...this.groupState.collapsedGroups,
-                [groupKey]: !this.groupState.collapsedGroups[groupKey],
+                ...collapsed,
+                [groupKey]: !collapsed[groupKey],
             };
         };
+
+        onWillUpdateProps((nextProps) => {
+            if (nextProps.searchFields !== this.props.searchFields) {
+                this._invalidateFieldCaches();
+                this._filterProxyKey = null;
+                this._groupProxyKey = null;
+            }
+        });
 
         useEffect(
             () => {
@@ -159,8 +152,10 @@ export class X2ManySearchField extends X2ManyField {
         );
     }
 
-    get searchPlaceholder() {
-        return this.props.placeholder || _t("Search...");
+    _invalidateFieldCaches() {
+        this._fieldLabelCache = null;
+        this._searchFieldsCache = null;
+        this._fieldListCache = null;
     }
 
     get activeSearchFields() {
@@ -243,12 +238,13 @@ export class X2ManySearchField extends X2ManyField {
         if (!activeFilter) {
             return this.list.records;
         }
-        const proxyKey = `${activeFilter.fieldName}::${activeFilter.query}::${this.list.records.length}`;
+        const records = this.list.records;
+        const proxyKey = `${activeFilter.fieldName}::${activeFilter.query}::${records.length}::${records[0]?.id ?? ""}::${records[records.length - 1]?.id ?? ""}`;
         if (proxyKey !== this._filterProxyKey) {
             const fields = activeFilter.fieldName
                 ? [activeFilter.fieldName]
                 : this.activeSearchFields;
-            this._filterProxy = this.list.records.filter((r) =>
+            this._filterProxy = records.filter((r) =>
                 matchesQuery(r, fields, activeFilter.query)
             );
             this._filterProxyKey = proxyKey;
@@ -271,7 +267,8 @@ export class X2ManySearchField extends X2ManyField {
         const { activeField: groupField } = this.groupState;
 
         if (groupField) {
-            const groupKey = `${groupField}::${filteredRecords.length}`;
+            const records = this.list.records;
+            const groupKey = `${groupField}::${filteredRecords.length}::${records[0]?.id ?? ""}::${records[records.length - 1]?.id ?? ""}`;
             if (groupKey !== this._groupProxyKey) {
                 const sorted = [...filteredRecords].sort((a, b) => {
                     const va = getFieldStringValue(a, groupField) || "";
@@ -299,9 +296,17 @@ export class X2ManySearchField extends X2ManyField {
     }
 
     onSelectGroupBy(fieldName) {
+        if (!this.groupState.activeField) {
+            this.facetOrder.order = [...this.facetOrder.order, "group"];
+        }
+        const collapsed = {};
+        for (const r of this.list.records) {
+            const key = getFieldStringValue(r, fieldName) || _t("(empty)");
+            collapsed[key] = true;
+        }
         this.groupState.activeField = fieldName;
         this.groupState.showDropdown = false;
-        this.groupState.collapsedGroups = {};
+        this.groupState.collapsedGroups = collapsed;
         this._groupProxyKey = null;
     }
 
@@ -312,9 +317,11 @@ export class X2ManySearchField extends X2ManyField {
         this._groupProxy = null;
         this._groupProxyKey = null;
         this._groupCounts = null;
+        this.facetOrder.order = this.facetOrder.order.filter((t) => t !== "group");
     }
 
     onToggleGroupDropdown() {
+        this.searchState.showDropdown = false;
         this.groupState.showDropdown = !this.groupState.showDropdown;
     }
 
@@ -322,6 +329,9 @@ export class X2ManySearchField extends X2ManyField {
         const query = this.searchState.inputValue.trim();
         if (!query) {
             return;
+        }
+        if (!this.searchState.activeFilter) {
+            this.facetOrder.order = [...this.facetOrder.order, "filter"];
         }
         this.searchState.activeFilter = {
             query,
@@ -346,9 +356,15 @@ export class X2ManySearchField extends X2ManyField {
     }
 
     onSearchKeydown(ev) {
-        if (ev.key === "Backspace" && !this.searchState.inputValue && this.searchState.activeFilter) {
-            this.onClearFilter();
-            return;
+        if (ev.key === "Backspace" && !this.searchState.inputValue) {
+            if (this.searchState.activeFilter) {
+                this.onClearFilter();
+                return;
+            }
+            if (this.groupState.activeField) {
+                this.onClearGroupBy();
+                return;
+            }
         }
         if (ev.key === "Escape") {
             this.searchState.showDropdown = false;
@@ -389,6 +405,7 @@ export class X2ManySearchField extends X2ManyField {
         this.searchState.inputValue = "";
         this.searchState.showDropdown = false;
         this.searchState.focusedIndex = -1;
+        this.facetOrder.order = this.facetOrder.order.filter((t) => t !== "filter");
     }
 }
 
@@ -400,9 +417,37 @@ export const x2ManySearchField = {
         const props = x2ManyField.extractProps(fieldInfo, dynamicInfo);
         const options = fieldInfo.options || {};
         props.searchFields = options.search_fields || [];
-        props.placeholder = options.placeholder || "";
         return props;
     },
 };
 
 registry.category("fields").add("x2many_search", x2ManySearchField);
+
+let _patched = false;
+
+function upgradeWithSectionAndNote() {
+    if (_patched) {
+        return true;
+    }
+    const sectionAndNoteField = registry.category("fields").get("section_and_note_one2many", null);
+    const BaseListRenderer = sectionAndNoteField?.component.components?.ListRenderer;
+    if (!BaseListRenderer) {
+        return false;
+    }
+    X2ManySearchField.components = {
+        ...X2ManySearchField.components,
+        ListRenderer: makeSearchListRenderer(BaseListRenderer),
+    };
+    _patched = true;
+    return true;
+}
+
+if (!upgradeWithSectionAndNote()) {
+    const fieldsRegistry = registry.category("fields");
+    const onFieldsUpdate = ({ detail: { operation, key } }) => {
+        if (operation === "add" && key === "section_and_note_one2many" && upgradeWithSectionAndNote()) {
+            fieldsRegistry.removeEventListener("UPDATE", onFieldsUpdate);
+        }
+    };
+    fieldsRegistry.addEventListener("UPDATE", onFieldsUpdate);
+}

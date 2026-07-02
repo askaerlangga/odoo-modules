@@ -1,7 +1,7 @@
 {
     "name": "X2many Search Bar",
     "summary": "Add a client-side search bar above one2many/many2many tree views in notebooks",
-    "version": "17.0.1.0.0",
+    "version": "17.0.2.0.0",
     "author": "Aska Erlangga",
     "website": "https://www.askaerlangga.my.id",
     "category": "Technical",
@@ -14,4 +14,6 @@
             "ae_x2many_search/static/src/scss/x2many_search_field.scss",
         ],
     },
+    "installable": True,
+    "application": False,
 }
