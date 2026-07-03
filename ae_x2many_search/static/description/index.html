@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+</head>
+<body>
+
+<!-- ======================================================
+     HERO
+     ====================================================== -->
+<section class="oe_container">
+    <div class="oe_row oe_spaced text-center">
+        <h2 class="oe_slogan" style="color:#017e84;">X2many Search Bar</h2>
+        <h3 class="oe_slogan">
+            Instantly search, filter and group records inside any
+            <code>one2many</code> or <code>many2many</code> list — no page reload needed.
+        </h3>
+        <div class="oe_demo oe_picture oe_screenshot">
+            <img src="images/main_screenshot.png" alt="X2many Search Bar overview"/>
+        </div>
+    </div>
+</section>
+
+<!-- ======================================================
+     FEATURES OVERVIEW
+     ====================================================== -->
+<section class="oe_container oe_dark">
+    <div class="oe_row oe_spaced">
+        <h2 class="oe_slogan" style="color:#017e84;">Everything you need, right inside the list</h2>
+        <h3 class="oe_slogan">Client-side — zero server round-trips</h3>
+
+        <div class="oe_span4 text-center mt-4">
+            <span class="fa fa-search fa-3x" style="color:#017e84;"></span>
+            <h4 class="mt-3"><strong>Smart Search</strong></h4>
+            <p class="text-justify">
+                Type a keyword and pick a field from the dropdown to scope the search.
+                Matched records appear instantly as a facet chip in the search bar.
+                Search across <em>Char</em>, <em>Text</em>, <em>Many2one</em> and
+                more field types.
+            </p>
+        </div>
+
+        <div class="oe_span4 text-center mt-4">
+            <span class="fa fa-object-group fa-3x" style="color:#017e84;"></span>
+            <h4 class="mt-3"><strong>Group By</strong></h4>
+            <p class="text-justify">
+                Click the caret button next to the search bar to open the Group By menu.
+                Records are sorted, grouped and collapsed by default so you can focus
+                on the groups that matter. Click any group header to expand or collapse it.
+            </p>
+        </div>
+
+        <div class="oe_span4 text-center mt-4">
+            <span class="fa fa-tags fa-3x" style="color:#017e84;"></span>
+            <h4 class="mt-3"><strong>Ordered Facets</strong></h4>
+            <p class="text-justify">
+                Active filter and group-by chips appear as Odoo-style facets in
+                insertion order. Remove any facet by clicking <strong>×</strong> or
+                by pressing <kbd>Backspace</kbd> on an empty input — the most
+                recently added facet is removed first.
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- ======================================================
+     SEARCH BAR SCREENSHOT
+     ====================================================== -->
+<section class="oe_container">
+    <div class="oe_row oe_spaced">
+        <div class="oe_span6">
+            <h2 class="oe_slogan" style="color:#017e84; text-align:left;">
+                Odoo-style search panel
+            </h2>
+            <h3 class="oe_slogan" style="text-align:left;">
+                Familiar UX — no learning curve
+            </h3>
+            <p class="oe_mt32 text-justify">
+                The search bar looks and behaves exactly like the native Odoo search panel.
+                Typing a query opens a <em>Search by</em> dropdown listing all searchable fields.
+                Select a field (or press <kbd>Enter</kbd>) to commit the search as a coloured
+                facet chip. Use <kbd>ArrowDown</kbd> / <kbd>ArrowUp</kbd> to navigate the
+                suggestions, and <kbd>Escape</kbd> to close the dropdown.
+            </p>
+            <p class="text-justify">
+                Only records already loaded on the current page are filtered —
+                making the experience instant and completely offline.
+            </p>
+        </div>
+        <div class="oe_span6">
+            <img class="oe_picture oe_screenshot"
+                 src="images/search_bar.png"
+                 alt="Search bar with facet chips"/>
+        </div>
+    </div>
+</section>
+
+<!-- ======================================================
+     GROUP BY SCREENSHOT
+     ====================================================== -->
+<section class="oe_container oe_dark">
+    <div class="oe_row oe_spaced">
+        <div class="oe_span6">
+            <img class="oe_picture oe_screenshot"
+                 src="images/group_by.png"
+                 alt="Group By menu and collapsed groups"/>
+        </div>
+        <div class="oe_span6">
+            <h2 class="oe_slogan" style="color:#017e84; text-align:left;">
+                Client-side Group By
+            </h2>
+            <h3 class="oe_slogan" style="text-align:left;">
+                Collapse, expand and switch groups on the fly
+            </h3>
+            <p class="oe_mt32 text-justify">
+                Opening the Group By menu (▾ caret button) lists all configured fields.
+                Selecting one immediately sorts and groups the visible records.
+                Each group header shows the group label and a record count badge.
+                Groups start <strong>collapsed</strong> so the view stays clean;
+                click any header to expand or collapse it individually.
+            </p>
+            <p class="text-justify">
+                Combine search and group by simultaneously — the widget applies
+                the filter first, then groups the matching results.
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- ======================================================
+     SECTION & NOTE SCREENSHOT
+     ====================================================== -->
+<section class="oe_container">
+    <div class="oe_row oe_spaced">
+        <div class="oe_span6">
+            <h2 class="oe_slogan" style="color:#017e84; text-align:left;">
+                Section &amp; Note support
+            </h2>
+            <h3 class="oe_slogan" style="text-align:left;">
+                Works on Sales Orders, Invoices and more
+            </h3>
+            <p class="oe_mt32 text-justify">
+                When the <strong>Accounting</strong> module is installed, the widget
+                automatically inherits full <em>Section &amp; Note</em> editing
+                capabilities — no extra configuration or separate module required.
+                Add a section, add a note, and fill in the description exactly as
+                you would with the default widget.
+            </p>
+            <p class="text-justify">
+                The upgrade happens transparently via the fields registry at runtime,
+                keeping <code>ae_x2many_search</code> free of any hard dependency on
+                <code>account</code>.
+            </p>
+        </div>
+        <div class="oe_span6">
+            <img class="oe_picture oe_screenshot"
+                 src="images/section_note.png"
+                 alt="Section and note support on sale order lines"/>
+        </div>
+    </div>
+</section>
+
+<!-- ======================================================
+     USAGE
+     ====================================================== -->
+<section class="oe_container oe_dark">
+    <div class="oe_row oe_spaced">
+        <h2 class="oe_slogan" style="color:#017e84;">Quick Setup</h2>
+        <h3 class="oe_slogan">Add the widget to any one2many or many2many field</h3>
+
+        <div class="oe_span12">
+            <p class="oe_mt32 text-center">
+                Add <code>widget="x2many_search"</code> to any
+                <code>one2many</code> or <code>many2many</code> field in your view XML
+                and list the fields to search/group via the <code>search_fields</code> option:
+            </p>
+
+            <div class="mx-auto mt-3 mb-3 p-4"
+                 style="background:#f4f4f4; border-left:4px solid #017e84;
+                        border-radius:4px; max-width:720px; font-family:monospace;
+                        font-size:0.9rem; white-space:pre-wrap;">
+&lt;field name="order_line"
+       widget="x2many_search"
+       options="{'search_fields': ['product_id', 'name', 'product_uom']}"/&gt;
+            </div>
+
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <h5><span class="fa fa-cog me-2" style="color:#017e84;"></span>Options</h5>
+                    <ul>
+                        <li>
+                            <strong><code>search_fields</code></strong> <em>(list, optional)</em> —
+                            field names to search and group by. Matched case-insensitively as substrings.
+                            For <code>many2one</code> fields the display name is used.
+                            If omitted, all visible columns are used automatically.
+                        </li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h5><span class="fa fa-keyboard-o me-2" style="color:#017e84;"></span>Keyboard Shortcuts</h5>
+                    <ul>
+                        <li><kbd>Enter</kbd> — commit search (auto-selects first field)</li>
+                        <li><kbd>↓</kbd> / <kbd>↑</kbd> — navigate field suggestions</li>
+                        <li><kbd>Escape</kbd> — close dropdown</li>
+                        <li><kbd>Backspace</kbd> — remove last facet (empty input)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ======================================================
+     NOTES
+     ====================================================== -->
+<section class="oe_container">
+    <div class="oe_row oe_spaced">
+        <h2 class="oe_slogan" style="color:#017e84;">Notes &amp; Compatibility</h2>
+        <div class="oe_span12">
+            <ul class="oe_mt32" style="line-height:2;">
+                <li>
+                    All filtering and grouping is <strong>client-side only</strong> — only records
+                    loaded on the current page are affected (default page size: 80 records).
+                </li>
+                <li>
+                    Supports both <code>one2many</code> and <code>many2many</code> field types.
+                </li>
+                <li>
+                    All standard widget options (<code>editable</code>, <code>create</code>,
+                    <code>delete</code>, <code>no_open</code>, etc.) continue to work alongside
+                    the search options.
+                </li>
+                <li>
+                    <strong>Section &amp; Note</strong> editing requires the <em>Description</em>
+                    column to be visible (optional columns menu). This is standard Odoo behaviour.
+                </li>
+                <li>Compatible with Odoo 17 Community and Enterprise.</li>
+            </ul>
+        </div>
+    </div>
+</section>
+
+<section class="oe_container oe_separator"></section>
+
+</body>
+</html>

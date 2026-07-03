@@ -7,6 +7,7 @@
     "category": "Technical",
     "depends": ["web"],
     "license": "LGPL-3",
+    "images": ["static/description/images/main_screenshot.png"],
     "assets": {
         "web.assets_backend": [
             "ae_x2many_search/static/src/js/x2many_search_field.js",
