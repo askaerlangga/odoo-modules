@@ -1,0 +1,35 @@
+<odoo>
+    <record id="view_approval_comment_wizard_form" model="ir.ui.view">
+        <field name="name">approval.comment.wizard.form</field>
+        <field name="model">approval.comment.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Approval Review Action">
+                <field name="res_model" invisible="1"/>
+                <field name="res_id" invisible="1"/>
+                <field name="action_type" invisible="1"/>
+                <sheet>
+                    <div class="alert alert-info" role="alert" invisible="action_type != 'approve'">
+                        <i class="fa fa-info-circle me-1"/> You may optionally provide an approval note/comment below.
+                    </div>
+                    <div class="alert alert-warning" role="alert" invisible="action_type != 'reject'">
+                        <i class="fa fa-warning me-1"/> Please state the reason for rejecting this document.
+                    </div>
+                    <group>
+                        <field name="comment" placeholder="Write your comments or reasons here..." required="action_type == 'reject'"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_confirm" type="object"
+                        string="Confirm Approval"
+                        class="btn-success"
+                        invisible="action_type != 'approve'"/>
+                    <button name="action_confirm" type="object"
+                        string="Confirm Rejection"
+                        class="btn-danger"
+                        invisible="action_type != 'reject'"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

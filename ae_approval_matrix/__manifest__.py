@@ -1,0 +1,33 @@
+{
+    "name": "Advanced Approval Matrix",
+    "version": "17.0.1.0.0",
+    "category": "Technical",
+    "summary": "Universal Multi-Tier Approval Matrix Engine for Any Odoo Document",
+    "author": "Aska Erlangga",
+    "website": "https://www.askaerlangga.my.id",
+    "license": "LGPL-3",
+    "depends": ["base", "mail", "hr", "bus", "web"],
+    "data": [
+        "security/approval_matrix_groups.xml",
+        "security/approval_matrix_rules.xml",
+        "security/ir.model.access.csv",
+        "data/mail_message_subtype.xml",
+        "templates/approval_templates.xml",
+        "views/approval_matrix_views.xml",
+        "views/approval_review_views.xml",
+        "views/approval_exception_views.xml",
+        "views/approval_comment_wizard_views.xml",
+        "views/menus.xml",
+    ],
+    "assets": {
+        "web.assets_backend": [
+            "ae_approval_matrix/static/src/systray/approval_systray.js",
+            "ae_approval_matrix/static/src/systray/approval_systray.xml",
+            "ae_approval_matrix/static/src/systray/approval_systray.scss",
+            "ae_approval_matrix/static/src/views/approval_list_controller_patch.js",
+        ],
+    },
+    "installable": True,
+    "application": False,
+    "auto_install": False,
+}

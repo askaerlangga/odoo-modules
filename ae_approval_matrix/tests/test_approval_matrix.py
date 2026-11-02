@@ -1,0 +1,1074 @@
+from lxml import etree
+
+from odoo.tests.common import TransactionCase
+from odoo.tools.misc import mute_logger
+from odoo.exceptions import AccessError, UserError, ValidationError
+
+
+class TestApprovalMatrix(TransactionCase):
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.company = cls.env.company
+
+        partner_mgr_group = cls.env.ref("base.group_partner_manager").id
+        user_group = cls.env.ref("base.group_user").id
+
+        # Users
+        cls.user_requester = cls.env["res.users"].create({
+            "name": "Test Requester",
+            "login": "test_requester",
+            "email": "requester@example.com",
+            "groups_id": [(6, 0, [user_group, partner_mgr_group])],
+        })
+        cls.user_approver_1 = cls.env["res.users"].create({
+            "name": "Approver Level 1",
+            "login": "test_approver1",
+            "email": "approver1@example.com",
+            "groups_id": [(6, 0, [user_group, partner_mgr_group])],
+        })
+        cls.user_approver_2 = cls.env["res.users"].create({
+            "name": "Approver Level 2",
+            "login": "test_approver2",
+            "email": "approver2@example.com",
+            "groups_id": [(6, 0, [user_group, partner_mgr_group])],
+        })
+        cls.user_bystander = cls.env["res.users"].create({
+            "name": "Random Bystander",
+            "login": "test_bystander",
+            "email": "bystander@example.com",
+            "groups_id": [(6, 0, [user_group, partner_mgr_group])],
+        })
+        cls.user_manager = cls.env["res.users"].create({
+            "name": "Approval Manager",
+            "login": "test_app_manager",
+            "email": "manager@example.com",
+            "groups_id": [(6, 0, [
+                cls.env.ref("base.group_user").id,
+                cls.env.ref("ae_approval_matrix.group_approval_manager").id,
+            ])],
+        })
+
+        # HR Department & Manager
+        cls.department = cls.env["hr.department"].create({
+            "name": "Finance Dept",
+        })
+        cls.employee_manager = cls.env["hr.employee"].create({
+            "name": "Finance Manager Emp",
+            "user_id": cls.user_approver_2.id,
+            "department_id": cls.department.id,
+        })
+        cls.department.write({"manager_id": cls.employee_manager.id})
+
+        cls.employee_requester = cls.env["hr.employee"].create({
+            "name": "Requester Emp",
+            "user_id": cls.user_requester.id,
+            "department_id": cls.department.id,
+        })
+
+        # Partner model as target for testing
+        cls.partner_model = cls.env["ir.model"].search([("model", "=", "res.partner")], limit=1)
+
+        # Create test document
+        cls.test_partner = cls.env["res.partner"].with_user(cls.user_requester).create({
+            "name": "Acme Corp",
+            "email": "contact@acme.com",
+            "user_id": cls.user_requester.id,
+            "company_id": cls.company.id,
+        })
+
+        user_field = cls.env["ir.model.fields"].search([
+            ("model_id", "=", cls.partner_model.id),
+            ("name", "=", "user_id"),
+        ], limit=1)
+
+        # Create Matrix
+        cls.workflow = cls.env["approval.matrix"].create({
+            "name": "Partner Approval Matrix",
+            "model_id": cls.partner_model.id,
+            "company_id": cls.company.id,
+            "approve_sequence": True,
+            "user_request_field_id": user_field.id if user_field else False,
+            "approver_ids": [
+                (0, 0, {
+                    "sequence": 1,
+                    "approval_header": "Level 1 - User Review",
+                    "approver_type": "users",
+                    "user_ids": [(6, 0, [cls.user_approver_1.id])],
+                    "require_all": True,
+                }),
+                (0, 0, {
+                    "sequence": 2,
+                    "approval_header": "Level 2 - Dept Manager",
+                    "approver_type": "dept_manager",
+                    "require_all": True,
+                }),
+            ],
+        })
+
+    def test_01_scanner_and_workflow_setup(self):
+        """Test scanning metadata and workflow domain evaluation."""
+        self.workflow.action_scan_model()
+        self.assertTrue(self.workflow.active)
+        self.assertEqual(self.workflow.res_model, "res.partner")
+        self.assertEqual(len(self.workflow.approver_ids), 2)
+        self.assertTrue(self.workflow.matches(self.test_partner))
+
+    def test_02_request_approval_and_levels(self):
+        """Test requesting approval generates correct reviews with sequential activation."""
+        doc = self.test_partner
+
+        # 1. Request approval
+        doc.with_user(self.user_requester).action_request_approval()
+
+        reviews = doc.approval_review_ids.sorted("sequence")
+        self.assertEqual(len(reviews), 2)
+
+        rev_lvl1 = reviews[0]
+        rev_lvl2 = reviews[1]
+
+        # First review is pending, second is waiting
+        self.assertEqual(rev_lvl1.status, "pending")
+        self.assertIn(self.user_approver_1.id, rev_lvl1.approver_ids.ids)
+        self.assertEqual(rev_lvl2.status, "waiting")
+        self.assertIn(self.user_approver_2.id, rev_lvl2.approver_ids.ids)
+
+        # Check computed state for Approver 1 vs Approver 2
+        self.assertEqual(doc.approval_state, "pending")
+        self.assertTrue(doc.with_user(self.user_approver_1).approval_user_can_approve)
+        self.assertFalse(doc.with_user(self.user_approver_2).approval_user_can_approve)
+
+        # Approver 1 approves Level 1 with comment via review action
+        rev_lvl1.with_user(self.user_approver_1).action_approve(comment="LGTM <script>alert(1)</script>")
+        self.assertEqual(rev_lvl1.status, "approved")
+        self.assertEqual(rev_lvl1.comment, "LGTM <script>alert(1)</script>")
+
+        # Now Level 2 automatically becomes pending
+        self.assertEqual(rev_lvl2.status, "pending")
+        self.assertTrue(doc.with_user(self.user_approver_2).approval_user_can_approve)
+
+        # Approver 2 approves Level 2 via native workflow action
+        doc.with_user(self.user_approver_2).action_approve_workflow()
+        self.assertEqual(rev_lvl2.status, "approved")
+        self.assertEqual(doc.approval_state, "approved")
+
+    def test_03_rejection_security_and_restart(self):
+        """Test rejection flow, unauthorized restart prevention, and restart by owner."""
+        doc = self.env["res.partner"].with_user(self.user_requester).create({
+            "name": "Beta Corp",
+            "email": "beta@example.com",
+            "user_id": self.user_requester.id,
+            "company_id": self.company.id,
+        })
+
+        doc.with_user(self.user_requester).action_request_approval()
+
+        # Bystander cannot restart while pending
+        with self.assertRaises(AccessError):
+            doc.with_user(self.user_bystander).action_restart_approval()
+
+        # Regular user cannot write directly to approval.review via ORM
+        rev = doc.approval_review_ids[0]
+        with self.assertRaises(AccessError):
+            rev.with_user(self.user_bystander).write({"status": "approved"})
+
+        # Level 1 approver rejects with reason via comment wizard
+        wiz_action = doc.with_user(self.user_approver_1).action_reject_workflow()
+        wiz = self.env["approval.comment.wizard"].with_user(self.user_approver_1).with_context(
+            wiz_action["context"]
+        ).create({"comment": "Missing tax ID"})
+        wiz.action_confirm()
+
+        self.assertEqual(doc.approval_state, "rejected")
+        self.assertTrue(doc.with_user(self.user_requester).approval_can_restart)
+        self.assertFalse(doc.with_user(self.user_bystander).approval_can_restart)
+
+        # Bystander still cannot restart after rejection
+        with self.assertRaises(AccessError):
+            doc.with_user(self.user_bystander).action_restart_approval()
+
+        # Requester restarts validation
+        doc.with_user(self.user_requester).action_restart_approval()
+        self.assertEqual(doc.approval_state, "draft")
+        self.assertTrue(doc.approval_need_validation)
+
+    def test_04_field_exception_guard(self):
+        """Test that non-excepted fields are locked during pending validation."""
+        doc = self.env["res.partner"].with_user(self.user_requester).create({
+            "name": "Gamma Corp",
+            "email": "gamma@example.com",
+            "comment": "Initial note",
+            "user_id": self.user_requester.id,
+            "company_id": self.company.id,
+        })
+
+        field_comment = self.env["ir.model.fields"].search([
+            ("model_id", "=", self.partner_model.id),
+            ("name", "=", "comment"),
+        ], limit=1)
+
+        self.env["approval.exception"].create({
+            "name": "Allow Comment Edit",
+            "model_id": self.partner_model.id,
+            "field_ids": [(6, 0, [field_comment.id])],
+            "allow_write_under_validation": True,
+        })
+
+        doc.with_user(self.user_requester).action_request_approval()
+
+        # Modifying 'comment' succeeds because of exception
+        doc.write({"comment": "Updated note during review"})
+        self.assertIn("Updated note during review", doc.comment)
+
+        # Modifying 'email' raises ValidationError because it's locked
+        with self.assertRaises(ValidationError):
+            doc.write({"email": "new_email@example.com"})
+
+    def test_05_native_header_and_arch_injection(self):
+        """Test get_view dynamically injects native approval header buttons, alerts, and reviews."""
+        views = self.env["res.partner"].get_views([(False, "form")])
+        self.assertIn("form", views["views"])
+        form_view = self.env["res.partner"].get_view(view_type="form")
+        arch = form_view["arch"]
+        self.assertIn("action_request_approval", arch)
+        self.assertIn("action_approve_matrix", arch)
+        self.assertIn("action_reject_matrix", arch)
+        self.assertIn("action_restart_approval", arch)
+        self.assertIn("approval_review_ids", arch)
+        self.assertIn("approval_next_review", arch)
+        self.assertIn("approval_need_validation", arch)
+        self.assertIn("approval_state", arch)
+        self.assertIn("approval_need_validation", form_view["models"]["res.partner"])
+        self.assertIn("approval_state", form_view["models"]["res.partner"])
+
+        # Test parallel workflow (approve_sequence = False)
+        self.workflow.write({"approve_sequence": False})
+        doc = self.env["res.partner"].with_user(self.user_requester).create({
+            "name": "Delta Systems",
+            "email": "delta@example.com",
+            "user_id": self.user_requester.id,
+            "company_id": self.company.id,
+        })
+        self.assertTrue(doc.approval_need_validation)
+        self.assertEqual(doc.approval_state, "draft")
+
+        doc.with_user(self.user_requester).action_request_approval()
+        self.assertEqual(doc.approval_state, "pending")
+        # Both approvers can approve immediately in parallel mode
+        self.assertTrue(doc.with_user(self.user_approver_1).approval_user_can_approve)
+        self.assertTrue(doc.with_user(self.user_approver_2).approval_user_can_approve)
+
+        doc.with_user(self.user_approver_2).action_approve_workflow()
+        self.assertEqual(doc.approval_state, "pending")
+        doc.with_user(self.user_approver_1).action_approve_workflow()
+        self.assertEqual(doc.approval_state, "approved")
+        self.workflow.write({"approve_sequence": True})
+
+    def test_06_confirmation_and_write_after_approval(self):
+        """Test confirming document after approval transitions state and allows write without lock error."""
+        field_type = self.env["ir.model.fields"].search([
+            ("model_id", "=", self.partner_model.id),
+            ("name", "=", "type"),
+        ], limit=1)
+
+        state_contact = self.env["approval.matrix.state.option"].create({
+            "model_id": self.partner_model.id,
+            "name": "Contact",
+            "value": "contact",
+        })
+        state_invoice = self.env["approval.matrix.state.option"].create({
+            "model_id": self.partner_model.id,
+            "name": "Invoice",
+            "value": "invoice",
+        })
+
+        self.env["approval.matrix"].create({
+            "name": "Partner State Matrix",
+            "model_id": self.partner_model.id,
+            "company_id": self.company.id,
+            "sequence": 1,
+            "state_field_id": field_type.id,
+            "source_state_ids": [(6, 0, [state_contact.id])],
+            "target_state_ids": [(6, 0, [state_invoice.id])],
+            "approver_ids": [
+                (0, 0, {
+                    "sequence": 1,
+                    "approval_header": "Manager Approval",
+                    "approver_type": "users",
+                    "user_ids": [(6, 0, [self.user_approver_1.id])],
+                }),
+            ],
+        })
+
+        partner = self.env["res.partner"].with_user(self.user_requester).create({
+            "name": "Epsilon Inc",
+            "type": "contact",
+            "company_id": self.company.id,
+        })
+
+        # Cannot transition to target state without approval
+        with self.assertRaises(ValidationError):
+            partner.write({"type": "invoice"})
+
+        # Request and approve
+        partner.with_user(self.user_requester).action_request_approval()
+        partner.with_user(self.user_approver_1).action_approve_workflow()
+        self.assertEqual(partner.approval_state, "approved")
+
+        # Confirming to target state together with metadata fields succeeds
+        partner.write({
+            "type": "invoice",
+            "comment": "Confirmed on approval",
+        })
+        self.assertEqual(partner.type, "invoice")
+
+        # Writing after confirmation when no after-validation exception exists is allowed
+        partner.write({"phone": "123456789"})
+        self.assertEqual(partner.phone, "123456789")
+
+    def test_07_level_condition_action_and_domain(self):
+        """Verify level condition action opens modal window and has_domain computes correctly."""
+        approver = self.workflow.approver_ids[0]
+        self.assertFalse(approver.has_domain)
+
+        act = approver.action_configure_domain()
+        self.assertEqual(act["type"], "ir.actions.act_window")
+        self.assertEqual(act["target"], "new")
+        self.assertEqual(act["res_model"], "approval.matrix.approver")
+        self.assertEqual(act["res_id"], approver.id)
+
+        approver.write({"level_domain": "[('name', '!=', False)]"})
+        self.assertTrue(approver.has_domain)
+
+    # ─── List view support ───
+    def test_08_list_arch_injection(self):
+        """Main list view (with action_id or dynamic top-level) gets badge + row buttons; dialogs stay untouched."""
+        Partner = self.env["res.partner"]
+        res = Partner.get_view(view_type="tree", action_id=1)
+        for token in ("action_request_approval", "action_approve_matrix",
+                      "action_reject_matrix", "action_restart_approval", "button_group"):
+            self.assertIn(token, res["arch"])
+        self.assertIn("approval_state", res["models"]["res.partner"])
+
+        # Top-level dynamic list view without action_id (e.g. stock.quant.action_view_inventory) gets injected
+        dynamic_list = Partner.get_view(view_type="tree")
+        self.assertIn("action_request_approval", dynamic_list["arch"])
+
+        # Dialog selector list view (e.g. Many2one 'Search More...') stays untouched
+        dialog_list = Partner.with_context(is_dialog=True).get_view(view_type="tree")
+        self.assertNotIn("action_request_approval", dialog_list["arch"])
+
+        no_inject = Partner.with_context(skip_approval_inject=True).get_view(view_type="tree", action_id=1)
+        self.assertNotIn("action_request_approval", no_inject["arch"])
+
+    def test_09_display_location_flags(self):
+        """show_in_form / show_in_list control injection; at least one must remain enabled."""
+        Partner = self.env["res.partner"]
+        self.workflow.show_in_list = False
+        self.assertNotIn(
+            "action_request_approval",
+            Partner.get_view(view_type="tree", action_id=1)["arch"],
+        )
+        self.assertIn("action_request_approval", Partner.get_view(view_type="form")["arch"])
+
+        self.workflow.write({"show_in_list": True, "show_in_form": False})
+        self.assertIn(
+            "action_request_approval",
+            Partner.get_view(view_type="tree", action_id=1)["arch"],
+        )
+        form_arch = Partner.get_view(view_type="form")["arch"]
+        self.assertNotIn("action_request_approval", form_arch)
+        # Guard, banner and history remain; only the buttons are skipped.
+        self.assertIn('name="approval_state"', form_arch)
+        self.assertIn('name="approval_need_validation"', form_arch)
+        self.assertIn("Approval Required", form_arch)
+
+        with self.assertRaises(ValidationError):
+            self.workflow.write({"show_in_list": False, "show_in_form": False})
+
+    def test_10_batch_compute_consistency_and_queries(self):
+        """Batch compute equals per-record compute and does not scale queries with records."""
+        Partner = self.env["res.partner"]
+        partners = Partner.create([{"name": "Batch %d" % i, "user_id": self.user_requester.id} for i in range(20)])
+        partners[0].with_user(self.user_requester).action_request_approval()
+        partners[1].with_user(self.user_requester).action_request_approval()
+        partners[1].with_user(self.user_approver_1).action_approve_workflow()
+
+        def snapshot(recs):
+            return [(r.approval_state, r.approval_need_validation, r.approval_user_can_approve,
+                     r.approval_can_restart, r.approval_next_review) for r in recs]
+
+        batch = partners.with_user(self.user_approver_1)
+        batch.invalidate_recordset()
+        batch_values = snapshot(batch)
+        single_values = []
+        for rec in partners:
+            rec = rec.with_user(self.user_approver_1)
+            rec.invalidate_recordset()
+            single_values.extend(snapshot(rec))
+        self.assertEqual(batch_values, single_values)
+        self.assertEqual(batch_values[0][0], "pending")
+        self.assertTrue(batch_values[0][2])
+        self.assertEqual(batch_values[2][0], "draft")
+
+        def query_count(recs):
+            recs = recs.with_user(self.user_approver_1)
+            recs.invalidate_recordset()
+            before = self.cr.sql_log_count
+            recs.mapped("approval_state")
+            return self.cr.sql_log_count - before
+
+        query_count(partners[:2])  # warm up caches
+        small = query_count(partners[:5])
+        large = query_count(partners)
+        self.assertLessEqual(large - small, 3, "approval compute must be batched (%s vs %s)" % (small, large))
+
+    def test_11_list_button_hiding(self):
+        """Buttons configured in hide_button_ids are hidden in list view while unapproved."""
+        btn_opt = self.env["approval.matrix.button.option"].create({
+            "model_id": self.partner_model.id,
+            "name": "open_commercial_entity",
+            "string": "Open Commercial Entity",
+        })
+        self.workflow.write({"hide_button_ids": [(4, btn_opt.id)]})
+
+        Partner = self.env["res.partner"]
+        arch = '<tree><button name="open_commercial_entity" string="Commercial" type="object"/></tree>'
+        view = self.env["ir.ui.view"].create({
+            "name": "test_partner_tree_btn",
+            "model": "res.partner",
+            "type": "tree",
+            "arch": arch,
+        })
+        res = Partner.get_view(view_id=view.id, view_type="tree", action_id=1)
+        self.assertIn('name="open_commercial_entity"', res["arch"])
+        self.assertIn("approval_state != 'approved'", res["arch"])
+
+    def test_12_auto_reject_button(self):
+        """Configured auto_reject_button_id is executed automatically on rejection."""
+        btn_opt = self.env["approval.matrix.button.option"].create({
+            "model_id": self.partner_model.id,
+            "name": "open_commercial_entity",
+            "string": "Open Commercial Entity",
+        })
+        self.workflow.write({"auto_reject_button_id": btn_opt.id})
+
+        doc = self.env["res.partner"].with_user(self.user_requester).create({
+            "name": "Delta Corp",
+            "user_id": self.user_requester.id,
+            "company_id": self.company.id,
+        })
+        doc.with_user(self.user_requester).action_request_approval()
+
+        rev = doc.approval_review_ids.filtered(lambda r: r.sequence == 1)
+        rev.with_user(self.user_approver_1).action_reject(reason="Testing auto reject")
+        self.assertEqual(doc.approval_state, "rejected")
+
+    def test_13_toolbar_and_tree_header_button_hiding(self):
+        """Header buttons in tree get invisible='1' and actions in toolbar are filtered."""
+        btn_opt = self.env["approval.matrix.button.option"].create({
+            "model_id": self.partner_model.id,
+            "name": "open_commercial_entity",
+            "string": "Apply Commercial",
+        })
+        self.workflow.write({"hide_button_ids": [(4, btn_opt.id)]})
+
+        Partner = self.env["res.partner"]
+        arch = '<tree><header><button name="open_commercial_entity" string="Apply Commercial" type="object"/></header></tree>'
+        view = self.env["ir.ui.view"].create({
+            "name": "test_partner_tree_header_btn",
+            "model": "res.partner",
+            "type": "tree",
+            "arch": arch,
+        })
+        res = Partner.get_view(view_id=view.id, view_type="tree", action_id=1)
+        # Header button gets dynamic approval guard
+        self.assertIn('name="open_commercial_entity"', res["arch"])
+        self.assertIn("approval_state != 'approved'", res["arch"])
+
+    def test_14_hide_list_custom_buttons(self):
+        """When hide_list_custom_buttons is enabled, ae_hide_list_custom_buttons class is injected."""
+        self.workflow.write({"hide_list_custom_buttons": True})
+        Partner = self.env["res.partner"]
+        res = Partner.get_view(view_type="tree", action_id=1)
+        self.assertIn("ae_hide_list_custom_buttons", res["arch"])
+
+        # When disabled, class should not be present
+        self.workflow.write({"hide_list_custom_buttons": False})
+        res2 = Partner.get_view(view_type="tree", action_id=1)
+        self.assertNotIn("ae_hide_list_custom_buttons", res2["arch"])
+
+    def test_15_action_view_approval_history(self):
+        """action_view_approval_history returns act_window with dialog target and review domain."""
+        doc = self.test_partner
+        doc.with_user(self.user_requester).action_request_approval()
+        self.assertEqual(doc.approval_state, "pending")
+
+        action = doc.action_view_approval_history()
+        self.assertEqual(action.get("type"), "ir.actions.act_window")
+        self.assertEqual(action.get("res_model"), "approval.review")
+        self.assertEqual(action.get("target"), "new")
+        self.assertIn(("res_model", "=", "res.partner"), action.get("domain"))
+        self.assertIn(("res_id", "=", doc.id), action.get("domain"))
+        self.assertIn("Approval History", action.get("name"))
+
+    def test_16_return_to_draft_resets_approval(self):
+        """When document returns from cancel/target state back to source state, approval is reset."""
+        self.env["approval.matrix"].search([("res_model", "=", "res.partner")]).write({"active": False})
+        field_type = self.env["ir.model.fields"].search([
+            ("model_id", "=", self.partner_model.id),
+            ("name", "=", "type"),
+        ], limit=1)
+        state_contact = self.env["approval.matrix.state.option"].create({
+            "model_id": self.partner_model.id,
+            "name": "Contact",
+            "value": "contact",
+        })
+        state_invoice = self.env["approval.matrix.state.option"].create({
+            "model_id": self.partner_model.id,
+            "name": "Invoice Address",
+            "value": "invoice",
+        })
+        state_other = self.env["approval.matrix.state.option"].create({
+            "model_id": self.partner_model.id,
+            "name": "Other",
+            "value": "other",
+        })
+
+        self.env["approval.matrix"].create({
+            "name": "Partner Return to Draft Matrix",
+            "model_id": self.partner_model.id,
+            "company_id": self.company.id,
+            "sequence": 1,
+            "state_field_id": field_type.id,
+            "source_state_ids": [(6, 0, [state_contact.id])],
+            "target_state_ids": [(6, 0, [state_invoice.id])],
+            "cancel_state_ids": [(6, 0, [state_other.id])],
+            "approver_ids": [
+                (0, 0, {
+                    "sequence": 1,
+                    "approval_header": "Manager Approval",
+                    "approver_type": "users",
+                    "user_ids": [(6, 0, [self.user_approver_1.id])],
+                }),
+            ],
+        })
+
+        partner = self.env["res.partner"].with_user(self.user_requester).create({
+            "name": "Zeta Corp",
+            "type": "contact",
+            "company_id": self.company.id,
+        })
+
+        # 1. Request and approve
+        partner.with_user(self.user_requester).action_request_approval()
+        partner.with_user(self.user_approver_1).action_approve_workflow()
+        self.assertEqual(partner.approval_state, "approved")
+
+        # 2. Confirm to target state ('invoice')
+        partner.write({"type": "invoice"})
+        self.assertEqual(partner.type, "invoice")
+
+        # 3. Cancel document ('other')
+        partner.write({"type": "other"})
+        self.assertEqual(partner.type, "other")
+        self.assertEqual(partner.approval_state, "cancel")
+
+        # 4. Set back to quotation / draft ('contact' - source state)
+        partner.write({"type": "contact"})
+        self.assertEqual(partner.type, "contact")
+        # Reviews should be unlinked/reset
+        self.assertFalse(partner.approval_review_ids)
+        self.assertEqual(partner.approval_state, "draft")
+        self.assertTrue(partner.approval_need_validation)
+
+        # 5. Confirming again without new approval must fail
+        with self.assertRaises(ValidationError):
+            partner.write({"type": "invoice"})
+
+    def test_17_non_state_model_lifecycle(self):
+        """Non-state models auto-void on value modification and auto-consume when condition ends."""
+        self.env["approval.matrix"].search([("res_model", "=", "res.partner")]).write({"active": False})
+
+        # Matrix for non-state model conditioned on domain (like stock.quant on diff != 0)
+        self.env["approval.matrix"].create({
+            "name": "Non-State Partner Limit Matrix",
+            "model_id": self.partner_model.id,
+            "company_id": self.company.id,
+            "sequence": 1,
+            "manual_domain": "[('comment', '!=', False)]",
+            "approver_ids": [
+                (0, 0, {
+                    "sequence": 1,
+                    "approval_header": "Limit Approval",
+                    "approver_type": "users",
+                    "user_ids": [(6, 0, [self.user_approver_1.id])],
+                }),
+            ],
+        })
+
+        partner = self.env["res.partner"].with_user(self.user_requester).create({
+            "name": "Theta Corp",
+            "comment": "Inventory Diff Counted",
+            "company_id": self.company.id,
+        })
+
+        # 1. Request and approve
+        partner.with_user(self.user_requester).action_request_approval()
+        partner.with_user(self.user_approver_1).action_approve_workflow()
+        self.assertEqual(partner.approval_state, "approved")
+        self.assertEqual(len(partner.approval_review_ids), 1)
+
+        # 2. Modify values while approved (Auto-Void): comment altered
+        partner.write({"comment": "Modified Diff Counted"})
+        self.assertIn("Modified Diff Counted", str(partner.comment))
+        # Approval should be auto-voided and reset to draft
+        self.assertFalse(partner.approval_review_ids)
+        self.assertEqual(partner.approval_state, "draft")
+        self.assertTrue(partner.approval_need_validation)
+
+        # 3. Request and approve new value
+        partner.with_user(self.user_requester).action_request_approval()
+        partner.with_user(self.user_approver_1).action_approve_workflow()
+        self.assertEqual(partner.approval_state, "approved")
+
+        # 4. Operation completed / cleared (comment = False, no longer matches matrix domain)
+        # (Equivalent to stock.quant inventory applied or cleared)
+        partner.write({"comment": False})
+        self.assertFalse(partner.comment)
+        # Approval should be auto-consumed (unlinked/closed)
+        self.assertFalse(partner.approval_review_ids)
+        self.assertEqual(partner.approval_state, "draft")
+        self.assertFalse(partner.approval_need_validation)
+
+    def test_18_dynamic_readonly_modifiers_form_and_tree(self):
+        """Form and tree fields get dynamic readonly guard, except exempt/exception fields."""
+        self.workflow.active = True
+        Partner = self.env["res.partner"]
+
+        # 1. Form View Check
+        form_res = Partner.get_view(view_type="form")
+        form_arch = form_res["arch"]
+        self.assertIn("approval_state in ('waiting', 'pending')", form_arch)
+
+        # 2. Tree View Check
+        tree_res = Partner.get_view(view_type="tree", action_id=1)
+        tree_arch = tree_res["arch"]
+        self.assertIn("approval_state in ('waiting', 'pending')", tree_arch)
+
+        # 3. Exception Check: field allowed under validation should not be readonly-locked
+        phone_field = self.env["ir.model.fields"].search([
+            ("model_id", "=", self.partner_model.id),
+            ("name", "=", "phone"),
+        ], limit=1)
+        self.env["approval.exception"].create({
+            "name": "Test Phone Exception",
+            "model_id": self.partner_model.id,
+            "field_ids": [(6, 0, [phone_field.id])],
+            "allow_write_under_validation": True,
+        })
+        form_res2 = Partner.get_view(view_type="form")
+        form_doc = etree.fromstring(form_res2["arch"])
+        phone_nodes = form_doc.xpath(".//field[@name='phone']")
+        if phone_nodes:
+            self.assertNotIn("approval_state in ('waiting', 'pending')", phone_nodes[0].attrib.get("readonly", ""))
+
+    @mute_logger("odoo.sql_db")
+    def test_19_unique_constraint_approval_matrix_name(self):
+        """Test unique constraint on (name, company_id) raises constraint violation."""
+        with mute_logger("odoo.sql_db"):
+            with self.assertRaises(Exception) as cm:
+                with self.cr.savepoint():
+                    self.env["approval.matrix"].create({
+                        "name": self.workflow.name,
+                        "company_id": self.workflow.company_id.id,
+                        "model_id": self.workflow.model_id.id,
+                    })
+            self.assertIn("approval_matrix_name_company_unique", str(cm.exception))
+
+    def test_20_approval_matrix_copy_appends_copy(self):
+        """Test duplicating an approval matrix appends '(copy)' and copies approval levels."""
+        copied = self.workflow.copy()
+        self.assertEqual(copied.name, f"{self.workflow.name} (copy)")
+        self.assertEqual(len(copied.approver_ids), len(self.workflow.approver_ids))
+        self.assertEqual(copied.model_id, self.workflow.model_id)
+
+        # Second copy should append another (copy) without constraint violation
+        copied_second = self.workflow.copy()
+        self.assertEqual(copied_second.name, f"{self.workflow.name} (copy) (copy)")
+
+    def test_21_auto_and_manual_approval_title(self):
+        """Test automatic description (name) generation while allowing manual override."""
+        Approver = self.env["approval.matrix.approver"]
+
+        # 1. Automatic title for dept_manager
+        app_dept = Approver.new({"approver_type": "dept_manager"})
+        app_dept._onchange_approver_type_and_targets()
+        self.assertEqual(app_dept.name, "Department Manager")
+        self.assertEqual(app_dept.approval_header, "Department Manager")
+
+        # 2. Automatic title for employee_manager
+        app_dir = Approver.new({"approver_type": "employee_manager"})
+        app_dir._onchange_approver_type_and_targets()
+        self.assertEqual(app_dir.name, "Direct Manager")
+        self.assertEqual(app_dir.approval_header, "Direct Manager")
+
+        # 3. Manual override is preserved
+        app_manual = Approver.new({"approver_type": "dept_manager", "name": "Head of Engineering"})
+        app_manual._onchange_approver_type_and_targets()
+        self.assertEqual(app_manual.name, "Head of Engineering")
+        self.assertEqual(app_manual.approval_header, "Head of Engineering")
+
+        # 4. Backward compatibility: setting legacy approval_header populates name
+        app_legacy = Approver.new({"approver_type": "dept_manager", "approval_header": "Custom Legacy Header"})
+        app_legacy._onchange_approver_type_and_targets()
+        self.assertEqual(app_legacy.approval_header, "Custom Legacy Header")
+        self.assertEqual(app_legacy.name, "Custom Legacy Header")
+
+    def test_22_direct_manager_and_dynamic_requester(self):
+        """Test employee_manager approver type resolves direct manager from document's user_request_field_id."""
+        self.employee_requester.parent_id = self.employee_manager
+
+        matrix = self.env["approval.matrix"].create({
+            "name": "Direct Manager Matrix",
+            "model_id": self.partner_model.id,
+            "company_id": self.company.id,
+            "user_request_field_id": self.env["ir.model.fields"].search([
+                ("model_id", "=", self.partner_model.id),
+                ("name", "=", "user_id"),
+            ], limit=1).id,
+            "approver_ids": [
+                (0, 0, {
+                    "sequence": 1,
+                    "name": "Direct Manager",
+                    "approver_type": "employee_manager",
+                }),
+            ],
+        })
+
+        partner = self.env["res.partner"].create({
+            "name": "Test Partner DM",
+            "user_id": self.user_requester.id,
+            "company_id": self.company.id,
+        })
+
+        reviews = matrix.generate_reviews(partner)
+        self.assertEqual(len(reviews), 1)
+        self.assertIn(self.user_approver_2, reviews.approver_ids)
+        self.assertEqual(reviews.name, "Direct Manager")
+
+    def test_23_skip_if_empty_level_handling(self):
+        """Test level is skipped when skip_if_empty is True and no approver resolved."""
+        self.employee_requester.parent_id = False
+
+        matrix = self.env["approval.matrix"].create({
+            "name": "Skip Empty Matrix",
+            "model_id": self.partner_model.id,
+            "company_id": self.company.id,
+            "approve_sequence": True,
+            "user_request_field_id": self.env["ir.model.fields"].search([
+                ("model_id", "=", self.partner_model.id),
+                ("name", "=", "user_id"),
+            ], limit=1).id,
+            "approver_ids": [
+                (0, 0, {
+                    "sequence": 1,
+                    "name": "Direct Manager (Optional)",
+                    "approver_type": "employee_manager",
+                    "skip_if_empty": True,
+                }),
+                (0, 0, {
+                    "sequence": 2,
+                    "name": "Final Approver",
+                    "approver_type": "users",
+                    "user_ids": [(6, 0, [self.user_approver_1.id])],
+                }),
+            ],
+        })
+
+        partner = self.env["res.partner"].create({
+            "name": "Test Partner Skip Empty",
+            "user_id": self.user_requester.id,
+            "company_id": self.company.id,
+        })
+
+        reviews = matrix.generate_reviews(partner)
+        self.assertEqual(len(reviews), 1)
+        self.assertEqual(reviews.name, "Final Approver")
+        self.assertIn(self.user_approver_1, reviews.approver_ids)
+
+    def test_24_quorum_partial_approval(self):
+        """Test partial quorum: minimum_approved=2 with 3 approvers."""
+        matrix = self.env["approval.matrix"].create({
+            "name": "Quorum Matrix",
+            "model_id": self.partner_model.id,
+            "company_id": self.company.id,
+            "approver_ids": [
+                (0, 0, {
+                    "sequence": 1,
+                    "name": "Committee Approval",
+                    "approver_type": "users",
+                    "user_ids": [(6, 0, [self.user_approver_1.id, self.user_approver_2.id, self.user_bystander.id])],
+                    "require_all": False,
+                    "minimum_approved": 2,
+                }),
+            ],
+        })
+
+        partner = self.env["res.partner"].create({
+            "name": "Test Quorum Partner",
+            "company_id": self.company.id,
+        })
+
+        reviews = matrix.generate_reviews(partner)
+        review = reviews[0]
+        review.status = "pending"
+
+        # 1. First approval
+        review.with_user(self.user_approver_1).action_approve()
+        self.assertEqual(review.status, "pending")
+        self.assertEqual(review.approved_count, 1)
+        self.assertIn(self.user_approver_1, review.approved_by_ids)
+
+        # Approver 1 already approved: must be excluded from action_my_approval_review list & count
+        my_action = self.env.ref("ae_approval_matrix.action_my_approval_review")
+        self.assertIn("approved_by_ids", my_action.domain)
+        my_reviews_u1 = self.env["approval.review"].search([
+            ("id", "=", review.id),
+            ("approver_ids", "in", [self.user_approver_1.id]),
+            ("status", "=", "pending"),
+            ("approved_by_ids", "not in", [self.user_approver_1.id]),
+        ])
+        self.assertFalse(my_reviews_u1, "User who already approved should be excluded from My Pending list")
+
+        # Approver 2 has not approved yet: must remain in My Pending list & count
+        my_reviews_u2 = self.env["approval.review"].search([
+            ("id", "=", review.id),
+            ("approver_ids", "in", [self.user_approver_2.id]),
+            ("status", "=", "pending"),
+            ("approved_by_ids", "not in", [self.user_approver_2.id]),
+        ])
+        self.assertTrue(my_reviews_u2, "User who has not approved must remain in My Pending list")
+
+        # 2. Second approval -> Quorum reached (2/2) -> Approved!
+        review.with_user(self.user_approver_2).action_approve()
+        self.assertEqual(review.status, "approved")
+        self.assertEqual(review.approved_count, 2)
+
+    def test_25_approve_sequence_bypass_behavior(self):
+        """Test approve_sequence_bypass auto-approves subsequent levels if already approved by same user."""
+        matrix = self.env["approval.matrix"].create({
+            "name": "Bypass Matrix",
+            "model_id": self.partner_model.id,
+            "company_id": self.company.id,
+            "approve_sequence": True,
+            "approve_sequence_bypass": True,
+            "approver_ids": [
+                (0, 0, {
+                    "sequence": 1,
+                    "name": "Level 1",
+                    "approver_type": "users",
+                    "user_ids": [(6, 0, [self.user_approver_1.id])],
+                }),
+                (0, 0, {
+                    "sequence": 2,
+                    "name": "Level 2 (Same Approver)",
+                    "approver_type": "users",
+                    "user_ids": [(6, 0, [self.user_approver_1.id])],
+                }),
+            ],
+        })
+
+        partner = self.env["res.partner"].create({
+            "name": "Test Bypass Partner",
+            "company_id": self.company.id,
+        })
+
+        reviews = matrix.generate_reviews(partner).sorted("sequence")
+        rev1, rev2 = reviews[0], reviews[1]
+        rev1.status = "pending"
+        rev2.status = "waiting"
+
+        rev1.with_user(self.user_approver_1).action_approve()
+        self.assertEqual(rev1.status, "approved")
+        self.assertEqual(rev2.status, "approved")
+
+    def test_26_approval_comment_wizard_approval_and_rejection(self):
+        """Test approval.comment.wizard for notes and required rejection reason."""
+        partner = self.env["res.partner"].create({
+            "name": "Wizard Test Partner",
+            "user_id": self.user_requester.id,
+            "company_id": self.company.id,
+        })
+        self.workflow.active = True
+        partner.with_user(self.user_requester).action_request_approval()
+
+        pending_rev = partner.approval_review_ids.filtered(lambda r: r.status == "pending")[0]
+
+        # 1. Rejection without comment raises ValidationError
+        wiz_reject_empty = self.env["approval.comment.wizard"].with_user(self.user_approver_1).new({
+            "res_model": "res.partner",
+            "res_id": partner.id,
+            "review_id": pending_rev.id,
+            "action_type": "reject",
+            "comment": "",
+        })
+        with self.assertRaises(ValidationError):
+            wiz_reject_empty._check_comment()
+
+        # 2. Rejection with reason records rejection_reason and rejects review
+        wiz_reject = self.env["approval.comment.wizard"].with_user(self.user_approver_1).create({
+            "res_model": "res.partner",
+            "res_id": partner.id,
+            "review_id": pending_rev.id,
+            "action_type": "reject",
+            "comment": "Price discount is too high",
+        })
+        wiz_reject.action_confirm()
+        self.assertEqual(pending_rev.status, "rejected")
+        self.assertEqual(pending_rev.rejection_reason, "Price discount is too high")
+        self.assertEqual(partner.approval_state, "rejected")
+
+        # 3. Restart and approve with comment
+        partner.action_restart_approval()
+        partner.with_user(self.user_requester).action_request_approval()
+        new_pending_rev = partner.approval_review_ids.filtered(lambda r: r.status == "pending")[0]
+
+        wiz_approve = self.env["approval.comment.wizard"].with_user(self.user_approver_1).create({
+            "res_model": "res.partner",
+            "res_id": partner.id,
+            "review_id": new_pending_rev.id,
+            "action_type": "approve",
+            "comment": "Approved with special commercial agreement",
+        })
+        wiz_approve.action_confirm()
+        self.assertEqual(new_pending_rev.status, "approved")
+        self.assertEqual(new_pending_rev.comment, "Approved with special commercial agreement")
+
+    def test_27_mail_activity_lifecycle(self):
+        """Test mail.activity is automatically scheduled on request and completed on approval."""
+        self.workflow.write({"create_activity": True})
+        partner = self.env["res.partner"].create({
+            "name": "Activity Test Partner",
+            "user_id": self.user_requester.id,
+            "company_id": self.company.id,
+        })
+        partner.with_user(self.user_requester).action_request_approval()
+
+        activities = partner.activity_ids.filtered(lambda a: a.user_id == self.user_approver_1)
+        self.assertTrue(activities, "Activity should be created for pending approver")
+        self.assertIn("Approval Needed", activities[0].summary)
+
+        partner.with_user(self.user_approver_1).action_approve_matrix()
+        active_activities = partner.activity_ids.filtered(lambda a: a.user_id == self.user_approver_1)
+        self.assertFalse(active_activities, "Activity should be closed once approved")
+
+    def test_28_matrix_sequence_priority_and_domain_fallback(self):
+        """Test matrix matching selects lowest sequence first and falls back properly."""
+        Matrix = self.env["approval.matrix"]
+
+        matrix_vip = Matrix.create({
+            "name": "VIP Matrix (Seq 5)",
+            "model_id": self.partner_model.id,
+            "company_id": self.company.id,
+            "sequence": 5,
+            "manual_domain": "[('ref', '=', 'VIP')]",
+            "approver_ids": [(0, 0, {
+                "sequence": 1,
+                "name": "VIP Approver",
+                "approver_type": "users",
+                "user_ids": [(6, 0, [self.user_approver_2.id])],
+            })],
+        })
+
+        matrix_general = Matrix.create({
+            "name": "General Matrix (Seq 10)",
+            "model_id": self.partner_model.id,
+            "company_id": self.company.id,
+            "sequence": 10,
+            "manual_domain": "[]",
+            "approver_ids": [(0, 0, {
+                "sequence": 1,
+                "name": "General Approver",
+                "approver_type": "users",
+                "user_ids": [(6, 0, [self.user_approver_1.id])],
+            })],
+        })
+
+        candidate_pool = matrix_vip | matrix_general
+
+        partner_vip = self.env["res.partner"].create({
+            "name": "VIP Partner",
+            "ref": "VIP",
+            "company_id": self.company.id,
+        })
+        matched_vip = Matrix.find_matching_matrices(
+            "res.partner", partner_vip, matrices=candidate_pool
+        )
+        self.assertEqual(matched_vip[0], matrix_vip)
+
+        partner_std = self.env["res.partner"].create({
+            "name": "Standard Partner",
+            "ref": "STD",
+            "company_id": self.company.id,
+        })
+        matched_std = Matrix.find_matching_matrices(
+            "res.partner", partner_std, matrices=candidate_pool
+        )
+        self.assertEqual(matched_std[0], matrix_general)
+
+    def test_29_systray_pending_approval_reviews(self):
+        """Scenario 29: Systray count and popup previews exclude already approved items and return formatted data."""
+        partner = self.env["res.partner"].create({
+            "name": "Systray Test Partner",
+            "company_id": self.company.id,
+            "user_id": self.user_requester.id,
+        })
+        partner.with_user(self.user_requester).action_request_approval()
+
+        # Before approval: approver_1 has 1 pending review, approver_2 has 0 (waiting)
+        count_u1 = self.env["res.users"].with_user(self.user_approver_1).get_approval_review_count()
+        self.assertEqual(count_u1, 1)
+
+        data_u1 = self.env["res.users"].with_user(self.user_approver_1).get_pending_approval_reviews(limit=5)
+        self.assertEqual(data_u1["count"], 1)
+        self.assertEqual(len(data_u1["reviews"]), 1)
+        rev_item = data_u1["reviews"][0]
+        self.assertEqual(rev_item["res_model"], "res.partner")
+        self.assertEqual(rev_item["res_id"], partner.id)
+        self.assertEqual(rev_item["res_name"], "Systray Test Partner")
+        self.assertTrue(bool(rev_item["time_ago"]))
+
+        # Bystander has 0
+        count_bystander = self.env["res.users"].with_user(self.user_bystander).get_approval_review_count()
+        self.assertEqual(count_bystander, 0)
+        data_bystander = self.env["res.users"].with_user(self.user_bystander).get_pending_approval_reviews()
+        self.assertEqual(data_bystander["count"], 0)
+        self.assertEqual(len(data_bystander["reviews"]), 0)
+
+        # Approver 1 approves level 1
+        rev1 = partner.approval_review_ids.filtered(lambda r: r.sequence == 1)
+        rev1.with_user(self.user_approver_1).action_approve()
+
+        # Now Approver 1 has 0 pending reviews
+        count_u1_after = self.env["res.users"].with_user(self.user_approver_1).get_approval_review_count()
+        self.assertEqual(count_u1_after, 0)
+        data_u1_after = self.env["res.users"].with_user(self.user_approver_1).get_pending_approval_reviews()
+        self.assertEqual(data_u1_after["count"], 0)
+        self.assertEqual(len(data_u1_after["reviews"]), 0)
+
+        # Approver 2 now has 1 pending review (level 2 became pending)
+        count_u2 = self.env["res.users"].with_user(self.user_approver_2).get_approval_review_count()
+        self.assertEqual(count_u2, 1)
+        data_u2 = self.env["res.users"].with_user(self.user_approver_2).get_pending_approval_reviews()
+        self.assertEqual(data_u2["count"], 1)
+        self.assertEqual(len(data_u2["reviews"]), 1)
+
+
+
+
+
+
+
+

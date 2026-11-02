@@ -1,0 +1,41 @@
+<odoo>
+    <!-- Root Menu -->
+    <menuitem id="menu_approval_root"
+        name="Approval Matrix"
+        web_icon="ae_approval_matrix,static/description/icon.png"
+        groups="ae_approval_matrix.group_approval_user"
+        sequence="30"/>
+
+    <!-- Approvals -->
+    <menuitem id="menu_approval_my_reviews"
+        name="My Approvals"
+        parent="menu_approval_root"
+        action="action_my_approval_review"
+        sequence="10"/>
+
+    <menuitem id="menu_approval_all_reviews"
+        name="All Reviews"
+        parent="menu_approval_root"
+        action="action_approval_review"
+        groups="ae_approval_matrix.group_approval_manager"
+        sequence="20"/>
+
+    <!-- Configuration -->
+    <menuitem id="menu_approval_config"
+        name="Configuration"
+        parent="menu_approval_root"
+        groups="ae_approval_matrix.group_approval_manager"
+        sequence="100"/>
+
+    <menuitem id="menu_approval_matrices"
+        name="Approval Matrices"
+        parent="menu_approval_config"
+        action="action_approval_matrix"
+        sequence="10"/>
+
+    <menuitem id="menu_approval_exceptions"
+        name="Field Lock Exceptions"
+        parent="menu_approval_config"
+        action="action_approval_exception"
+        sequence="20"/>
+</odoo>

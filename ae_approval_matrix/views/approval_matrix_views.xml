@@ -1,0 +1,272 @@
+<odoo>
+    <!-- ─── approval.matrix ─── -->
+    <record id="view_approval_matrix_tree" model="ir.ui.view">
+        <field name="name">approval.matrix.tree</field>
+        <field name="model">approval.matrix</field>
+        <field name="arch" type="xml">
+            <tree string="Approval Matrices">
+                <field name="sequence" widget="handle"/>
+                <field name="name" string="Matrix Name"/>
+                <field name="model_id" string="Document Model"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="approve_sequence"/>
+                <field name="auto_confirm_button_id" optional="show"/>
+                <field name="auto_reject_button_id" optional="hide"/>
+                <field name="active" widget="boolean_toggle"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- ─── approval.matrix.approver condition dialog ─── -->
+    <record id="view_approval_matrix_approver_condition_dialog" model="ir.ui.view">
+        <field name="name">approval.matrix.approver.condition.dialog</field>
+        <field name="model">approval.matrix.approver</field>
+        <field name="priority">100</field>
+        <field name="arch" type="xml">
+            <form string="Level Threshold / Condition">
+                <field name="res_model" invisible="1"/>
+                <div class="alert alert-info py-2 mb-3" role="alert">
+                    <i class="fa fa-info-circle me-1" title="Info"/>
+                    Set the filter criteria that documents must match to trigger this approval level. Leave empty to apply to all documents.
+                </div>
+                <group>
+                    <field name="level_domain" string="Active When" widget="domain"
+                        options="{'model': 'res_model'}"
+                        placeholder="[] (Always active for this level)"/>
+                </group>
+                <footer>
+                    <button string="Save" class="btn-primary" special="save"/>
+                    <button string="Discard" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_approval_matrix_form" model="ir.ui.view">
+        <field name="name">approval.matrix.form</field>
+        <field name="model">approval.matrix</field>
+        <field name="arch" type="xml">
+            <form string="Approval Matrix">
+                <field name="active" invisible="1"/>
+                <field name="res_model" invisible="1"/>
+                <header>
+                    <button name="action_scan_model" type="object"
+                        string="Re-Scan Model States &amp; Buttons"
+                        class="btn-secondary" icon="fa-refresh"/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_title">
+                        <label for="name" string="Matrix Name"/>
+                        <h1>
+                            <field name="name" placeholder="e.g. Purchase Order Approval Matrix &gt; $10k"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group name="general_info" string="General Information">
+                            <field name="model_id" options="{'no_create': True, 'no_open': True}"/>
+                            <field name="user_request_field_id" options="{'no_create': True, 'no_open': True}"
+                                domain="[('model_id', '=', model_id), ('ttype', '=', 'many2one'), ('relation', 'in', ['res.users', 'hr.employee'])]"
+                                placeholder="Default: Document Creator (create_uid)"/>
+                            <field name="company_id" groups="base.group_multi_company" options="{'no_create': True}"/>
+                        </group>
+                        <group name="flow_options" string="Approval Behavior">
+                            <field name="approve_sequence"/>
+                            <field name="approve_sequence_bypass" invisible="not approve_sequence"/>
+                            <field name="require_approve_comment"/>
+                        </group>
+                    </group>
+                    <group string="Matrix Trigger Condition">
+                        <field name="manual_domain" string="Apply When" widget="domain"
+                            options="{'model': 'res_model', 'in_dialog': True}"
+                            placeholder="[] (Applies to all documents)"/>
+                    </group>
+
+                    <notebook>
+                        <page string="Approval Levels" name="approvers">
+                            <field name="approver_ids" context="{'default_matrix_id': id, 'default_res_model': res_model}">
+                                <tree editable="bottom">
+                                    <field name="res_model" column_invisible="1"/>
+                                    <field name="has_domain" column_invisible="1"/>
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="approver_type"/>
+                                    <field name="user_ids" widget="many2many_tags"
+                                        string="Users"
+                                        invisible="approver_type != 'users'"
+                                        required="approver_type == 'users' and not skip_if_empty"
+                                        options="{'no_create': True}"/>
+                                    <field name="group_id"
+                                        string="Security Group"
+                                        invisible="approver_type != 'group'"
+                                        required="approver_type == 'group' and not skip_if_empty"
+                                        options="{'no_create': True}"/>
+                                    <field name="approver_summary" string="Assigned To"
+                                        invisible="approver_type in ('users', 'group')"
+                                        readonly="1"/>
+                                    <field name="name" string="Description" placeholder="e.g. Direct Manager, Finance Review"/>
+                                    <field name="require_all" string="All Approvers?"/>
+                                    <field name="minimum_approved" string="Min. Approvals" invisible="require_all"/>
+                                    <field name="skip_if_empty" optional="show"/>
+                                    <button name="action_configure_domain" type="object"
+                                        icon="fa-external-link"
+                                        title="Configure Level Condition"
+                                        invisible="has_domain"
+                                        class="btn-link text-muted"/>
+                                    <button name="action_configure_domain" type="object"
+                                        icon="fa-external-link"
+                                        title="Level Condition Active"
+                                        invisible="not has_domain"
+                                        class="btn-link text-primary"/>
+                                </tree>
+                                <form string="Approval Level">
+                                    <field name="res_model" invisible="1"/>
+                                    <group>
+                                        <group string="Level &amp; Approver Assignment">
+                                            <field name="sequence"/>
+                                            <field name="approver_type"/>
+                                            <field name="user_ids" widget="many2many_tags"
+                                                invisible="approver_type != 'users'"
+                                                required="approver_type == 'users' and not skip_if_empty"
+                                                options="{'no_create': True}"/>
+                                            <field name="group_id"
+                                                invisible="approver_type != 'group'"
+                                                required="approver_type == 'group' and not skip_if_empty"
+                                                options="{'no_create': True}"/>
+                                            <field name="name" string="Description" placeholder="e.g. Direct Manager, Finance Review"/>
+                                            <field name="skip_if_empty"/>
+                                        </group>
+                                        <group string="Quorum Settings">
+                                            <field name="require_all"/>
+                                            <field name="minimum_approved" invisible="require_all"/>
+                                        </group>
+                                    </group>
+                                    <group string="Level Threshold / Condition (Optional)">
+                                        <field name="level_domain" string="Active When" widget="domain"
+                                            options="{'model': 'res_model', 'in_dialog': True}"
+                                            placeholder="[] (Always active for this level)"/>
+                                    </group>
+                                </form>
+                            </field>
+                        </page>
+
+                        <page string="Document States &amp; Buttons" name="state_setup">
+                            <group>
+                                <group string="State Configuration">
+                                    <field name="state_field_id" options="{'no_create': True, 'no_open': True}"/>
+                                    <field name="source_state_ids" widget="many2many_tags"
+                                        domain="[('model_id', '=', model_id)]"
+                                        options="{'no_create': True}"/>
+                                    <field name="target_state_ids" widget="many2many_tags"
+                                        domain="[('model_id', '=', model_id)]"
+                                        options="{'no_create': True}"/>
+                                    <field name="cancel_state_ids" widget="many2many_tags"
+                                        domain="[('model_id', '=', model_id)]"
+                                        options="{'no_create': True}"/>
+                                </group>
+                                <group string="Button Actions">
+                                    <field name="hide_button_ids" widget="many2many_tags"
+                                        domain="[('model_id', '=', model_id)]"
+                                        options="{'no_create': True}"/>
+                                    <field name="auto_confirm_button_id"
+                                        domain="[('model_id', '=', model_id)]"
+                                        options="{'no_create': True}"
+                                        placeholder="None (Manual action after approval)"/>
+                                    <field name="auto_reject_button_id"
+                                        domain="[('model_id', '=', model_id)]"
+                                        options="{'no_create': True}"
+                                        placeholder="None (Manual action on rejection)"/>
+                                </group>
+                                <group string="Display Locations">
+                                    <field name="show_in_form"/>
+                                    <field name="show_in_list"/>
+                                    <field name="hide_list_custom_buttons" invisible="not show_in_list"/>
+                                </group>
+                            </group>
+                        </page>
+
+                        <page string="Notifications &amp; Activities" name="notifications">
+                            <group>
+                                <group string="Chatter Notifications">
+                                    <field name="notify_on_create"/>
+                                    <field name="notify_on_pending" invisible="not approve_sequence"/>
+                                </group>
+                                <group string="Scheduled Activities">
+                                    <field name="create_activity"/>
+                                    <field name="activity_type_id" invisible="not create_activity" options="{'no_create': True}"/>
+                                </group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_approval_matrix_search" model="ir.ui.view">
+        <field name="name">approval.matrix.search</field>
+        <field name="model">approval.matrix</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="res_model"/>
+                <filter name="active" string="Active" domain="[('active', '=', True)]"/>
+                <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
+                <separator/>
+                <filter name="with_sequence" string="Sequential" domain="[('approve_sequence', '=', True)]"/>
+                <filter name="auto_confirm" string="Auto-Trigger Button" domain="[('auto_confirm_button_id', '!=', False)]"/>
+                <filter name="auto_reject" string="Auto-Trigger on Reject" domain="[('auto_reject_button_id', '!=', False)]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_by_model" string="Model" context="{'group_by': 'model_id'}"/>
+                    <filter name="group_by_company" string="Company" context="{'group_by': 'company_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_approval_matrix" model="ir.actions.act_window">
+        <field name="name">Approval Matrices</field>
+        <field name="res_model">approval.matrix</field>
+        <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="view_approval_matrix_search"/>
+        <field name="context">{'search_default_active': 1}</field>
+    </record>
+
+    <!-- ─── approval.matrix.button.option & state.option ─── -->
+    <record id="view_approval_matrix_button_option_tree" model="ir.ui.view">
+        <field name="name">approval.matrix.button.option.tree</field>
+        <field name="model">approval.matrix.button.option</field>
+        <field name="arch" type="xml">
+            <tree string="Header Buttons">
+                <field name="string" string="Button Label"/>
+                <field name="name" string="Method / Action Name"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_approval_matrix_button_option_search" model="ir.ui.view">
+        <field name="name">approval.matrix.button.option.search</field>
+        <field name="model">approval.matrix.button.option</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="string" filter_domain="['|', ('string', 'ilike', self), ('name', 'ilike', self)]" string="Button Label or Method"/>
+                <field name="name"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_approval_matrix_state_option_tree" model="ir.ui.view">
+        <field name="name">approval.matrix.state.option.tree</field>
+        <field name="model">approval.matrix.state.option</field>
+        <field name="arch" type="xml">
+            <tree string="Document States">
+                <field name="name" string="Display Label"/>
+                <field name="value" string="Technical Value"/>
+            </tree>
+        </field>
+    </record>
+</odoo>

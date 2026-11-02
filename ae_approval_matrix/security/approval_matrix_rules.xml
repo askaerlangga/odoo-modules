@@ -1,0 +1,19 @@
+<odoo>
+    <record id="approval_matrix_comp_rule" model="ir.rule">
+        <field name="name">Approval Matrix multi-company</field>
+        <field name="model_id" ref="model_approval_matrix"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="approval_review_comp_rule" model="ir.rule">
+        <field name="name">Approval Review multi-company</field>
+        <field name="model_id" ref="model_approval_review"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="approval_exception_comp_rule" model="ir.rule">
+        <field name="name">Approval Exception multi-company</field>
+        <field name="model_id" ref="model_approval_exception"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+</odoo>

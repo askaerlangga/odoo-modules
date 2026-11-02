@@ -1,0 +1,106 @@
+.o_ae_approval_systray {
+    height: 100%;
+
+    .dropdown-toggle {
+        display: flex;
+        align-items: center;
+        height: 100%;
+        padding: 0 10px;
+        color: rgba(255, 255, 255, 0.85);
+        border: none;
+        background: transparent;
+        text-decoration: none;
+
+        &:hover, &:focus, &[aria-expanded="true"] {
+            color: #ffffff !important;
+            background-color: rgba(255, 255, 255, 0.12);
+        }
+
+        i {
+            color: inherit !important;
+        }
+
+        &::after {
+            display: none !important;
+        }
+    }
+
+    .badge {
+        font-size: 0.65rem;
+        margin-top: 3px;
+        padding: 0.2em 0.45em;
+    }
+}
+
+.o_ae_approval_menu {
+    width: 380px;
+    max-width: 95vw;
+    font-size: 0.875rem;
+
+    .o_ae_approval_header {
+        background-color: var(--o-view-background-color, #ffffff);
+        border-bottom: 1px solid var(--border-color, #dee2e6);
+
+        .btn-link {
+            color: #714B67;
+            font-size: 0.85rem;
+            &:hover {
+                color: #54374d;
+                text-decoration: underline;
+            }
+        }
+    }
+
+    .o_ae_approval_items {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .o_ae_approval_item {
+        background-color: var(--o-view-background-color, #ffffff);
+        border-bottom: 1px solid var(--border-color, #f1f1f1);
+        cursor: pointer;
+        transition: background-color 0.15s ease-in-out;
+
+        &:hover {
+            background-color: rgba(0, 0, 0, 0.04);
+        }
+
+        &:last-child {
+            border-bottom: none;
+        }
+    }
+
+    .o_ae_approval_avatar {
+        width: 38px;
+        height: 38px;
+        min-width: 38px;
+        border-radius: 50%;
+        background-color: #f3eff2;
+        color: #714B67;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+    }
+
+    .o_ae_approval_footer {
+        background-color: #f8f9fa;
+        border-top: 1px solid var(--border-color, #dee2e6);
+
+        .btn-link {
+            color: #714B67;
+            font-size: 0.85rem;
+            &:hover {
+                color: #54374d;
+                text-decoration: underline;
+            }
+        }
+    }
+}
+
+// Hide extra custom list action buttons in control panel beside 'New' when configured
+.o_action_manager:has(.ae_hide_list_custom_buttons) .o_control_panel .o_list_buttons button:not(.o_list_button_add):not(.o_list_button_save):not(.o_list_button_discard),
+.o_view_controller:has(.ae_hide_list_custom_buttons) .o_control_panel .o_list_buttons button:not(.o_list_button_add):not(.o_list_button_save):not(.o_list_button_discard) {
+    display: none !important;
+}

@@ -1,0 +1,14 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_approval_matrix_user,approval.matrix.user,model_approval_matrix,base.group_user,1,0,0,0
+access_approval_matrix_manager,approval.matrix.manager,model_approval_matrix,group_approval_manager,1,1,1,1
+access_approval_matrix_approver_user,approval.matrix.approver.user,model_approval_matrix_approver,base.group_user,1,0,0,0
+access_approval_matrix_approver_manager,approval.matrix.approver.manager,model_approval_matrix_approver,group_approval_manager,1,1,1,1
+access_approval_matrix_state_option_user,approval.matrix.state.option.user,model_approval_matrix_state_option,base.group_user,1,0,0,0
+access_approval_matrix_state_option_manager,approval.matrix.state.option.manager,model_approval_matrix_state_option,group_approval_manager,1,1,1,1
+access_approval_matrix_button_option_user,approval.matrix.button.option.user,model_approval_matrix_button_option,base.group_user,1,0,0,0
+access_approval_matrix_button_option_manager,approval.matrix.button.option.manager,model_approval_matrix_button_option,group_approval_manager,1,1,1,1
+access_approval_review_user,approval.review.user,model_approval_review,base.group_user,1,0,0,0
+access_approval_review_manager,approval.review.manager,model_approval_review,group_approval_manager,1,1,1,1
+access_approval_exception_user,approval.exception.user,model_approval_exception,base.group_user,1,0,0,0
+access_approval_exception_manager,approval.exception.manager,model_approval_exception,group_approval_manager,1,1,1,1
+access_approval_comment_wizard,approval.comment.wizard,model_approval_comment_wizard,base.group_user,1,1,1,1

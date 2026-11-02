@@ -1,0 +1,172 @@
+<odoo>
+    <!-- ─── approval.review ─── -->
+    <record id="view_approval_review_tree_dialog" model="ir.ui.view">
+        <field name="name">approval.review.tree.dialog</field>
+        <field name="model">approval.review</field>
+        <field name="arch" type="xml">
+            <tree string="Approval History" default_order="sequence, id" create="false" edit="false" delete="false"
+                  decoration-success="status == 'approved'"
+                  decoration-danger="status == 'rejected'"
+                  decoration-info="status == 'pending'"
+                  decoration-muted="status in ('waiting', 'cancel')">
+                <field name="sequence" string="Level"/>
+                <field name="approver_ids" widget="many2many_tags" string="Assigned Approvers"/>
+                <field name="name" string="Description"/>
+                <field name="minimum_approved" string="Min. Required"/>
+                <field name="status" widget="badge"
+                       decoration-success="status == 'approved'"
+                       decoration-danger="status == 'rejected'"
+                       decoration-info="status == 'pending'"
+                       decoration-muted="status in ('waiting', 'cancel')"/>
+                <field name="reviewed_users_display" string="Reviewed By"/>
+                <field name="action_datetime" string="Action Date"/>
+                <field name="comment" string="Comment"/>
+                <field name="rejection_reason" string="Rejection Reason"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_approval_review_tree" model="ir.ui.view">
+        <field name="name">approval.review.tree</field>
+        <field name="model">approval.review</field>
+        <field name="arch" type="xml">
+            <tree string="Approval Reviews" default_order="sequence, id" create="false" edit="false">
+                <field name="sequence" string="Level"/>
+                <field name="res_name" string="Document"/>
+                <field name="res_model" string="Model"/>
+                <field name="approver_ids" widget="many2many_tags" string="Assigned Approvers"/>
+                <field name="name" string="Description"/>
+                <field name="minimum_approved" string="Min. Required"/>
+                <field name="approved_by_ids" widget="many2many_tags"/>
+                <field name="rejected_by_ids" widget="many2many_tags"/>
+                <field name="status" widget="badge"
+                    decoration-success="status == 'approved'"
+                    decoration-danger="status == 'rejected'"
+                    decoration-info="status == 'pending'"
+                    decoration-muted="status in ('waiting', 'cancel')"/>
+                <field name="action_datetime" string="Action Date"/>
+                <button name="action_open_document" type="object"
+                    string="Open Document" icon="fa-external-link"
+                    class="btn-link"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_approval_review_form" model="ir.ui.view">
+        <field name="name">approval.review.form</field>
+        <field name="model">approval.review</field>
+        <field name="arch" type="xml">
+            <form string="Approval Review" create="false" edit="false">
+                <field name="user_can_approve" invisible="1"/>
+                <header>
+                    <button name="action_open_document" type="object"
+                        string="Open Source Document"
+                        class="btn-primary" icon="fa-external-link"/>
+                    <button name="action_approve" type="object"
+                        string="Approve"
+                        invisible="not user_can_approve"
+                        class="btn-success"/>
+                    <button name="action_reject" type="object"
+                        string="Reject"
+                        invisible="not user_can_approve"
+                        class="btn-danger"/>
+                    <field name="status" widget="statusbar"
+                        statusbar_visible="waiting,pending,approved,rejected"
+                        readonly="1"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" string="Description"/>
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group name="doc_info" string="Document Details">
+                            <field name="res_name" readonly="1"/>
+                            <field name="res_model" readonly="1"/>
+                            <field name="matrix_id" readonly="1" string="Approval Matrix"/>
+                            <field name="sequence" readonly="1"/>
+                        </group>
+                        <group name="quorum_info" string="Review Quorum &amp; Activity">
+                            <field name="minimum_approved" readonly="1"/>
+                            <field name="approved_count" readonly="1"/>
+                            <field name="rejected_count" readonly="1"/>
+                            <field name="action_datetime" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Assigned Approvers">
+                        <field name="approver_ids" widget="many2many_tags" nolabel="1" readonly="1" colspan="2"/>
+                    </group>
+                    <group string="Approved By" invisible="not approved_by_ids">
+                        <group>
+                            <field name="approved_by_ids" widget="many2many_tags" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="comment" readonly="1" invisible="not comment"/>
+                        </group>
+                    </group>
+                    <group string="Rejected By" invisible="not rejected_by_ids">
+                        <group>
+                            <field name="rejected_by_ids" widget="many2many_tags" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="rejection_reason" readonly="1" invisible="not rejection_reason"/>
+                        </group>
+                    </group>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_approval_review_search" model="ir.ui.view">
+        <field name="name">approval.review.search</field>
+        <field name="model">approval.review</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="res_name" string="Document"/>
+                <field name="name" string="Description"/>
+                <field name="res_model"/>
+                <field name="approver_ids"/>
+                <filter name="my_pending" string="My Pending Approvals"
+                    domain="[('approver_ids', 'in', [uid]), ('status', '=', 'pending'), ('approved_by_ids', 'not in', [uid])]"/>
+                <filter name="all_pending" string="All Pending"
+                    domain="[('status', '=', 'pending')]"/>
+                <filter name="waiting" string="Waiting"
+                    domain="[('status', '=', 'waiting')]"/>
+                <filter name="approved" string="Approved"
+                    domain="[('status', '=', 'approved')]"/>
+                <filter name="rejected" string="Rejected"
+                    domain="[('status', '=', 'rejected')]"/>
+                <separator/>
+                <group expand="0" string="Group By">
+                    <filter name="group_by_model" string="Model" context="{'group_by': 'res_model'}"/>
+                    <filter name="group_by_status" string="Status" context="{'group_by': 'status'}"/>
+                    <filter name="group_by_matrix" string="Approval Matrix" context="{'group_by': 'matrix_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_approval_review" model="ir.actions.act_window">
+        <field name="name">All Approval Reviews</field>
+        <field name="res_model">approval.review</field>
+        <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="view_approval_review_search"/>
+        <field name="context">{'search_default_all_pending': 1}</field>
+    </record>
+
+    <record id="action_my_approval_review" model="ir.actions.act_window">
+        <field name="name">My Pending Approvals</field>
+        <field name="res_model">approval.review</field>
+        <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="view_approval_review_search"/>
+        <field name="domain">[('approver_ids', 'in', [uid]), ('status', '=', 'pending'), ('approved_by_ids', 'not in', [uid])]</field>
+        <field name="context">{'search_default_my_pending': 1}</field>
+    </record>
+</odoo>

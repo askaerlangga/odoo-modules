@@ -1,0 +1,31 @@
+<odoo>
+    <record id="mt_approval_requested" model="mail.message.subtype">
+        <field name="name">Approval Requested</field>
+        <field name="default" eval="True"/>
+        <field name="description">Approval Requested</field>
+    </record>
+
+    <record id="mt_approval_approved" model="mail.message.subtype">
+        <field name="name">Approval Step Completed</field>
+        <field name="default" eval="True"/>
+        <field name="description">Approval Step Completed</field>
+    </record>
+
+    <record id="mt_approval_completed" model="mail.message.subtype">
+        <field name="name">Approval Completed</field>
+        <field name="default" eval="True"/>
+        <field name="description">Approval Completed</field>
+    </record>
+
+    <record id="mt_approval_rejected" model="mail.message.subtype">
+        <field name="name">Approval Rejected</field>
+        <field name="default" eval="True"/>
+        <field name="description">Approval Rejected</field>
+    </record>
+
+    <record id="mt_approval_reset" model="mail.message.subtype">
+        <field name="name">Approval Reset</field>
+        <field name="default" eval="False"/>
+        <field name="description">Approval Reset</field>
+    </record>
+</odoo>
