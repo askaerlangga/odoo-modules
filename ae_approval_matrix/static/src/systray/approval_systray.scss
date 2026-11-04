@@ -38,32 +38,24 @@
     font-size: 0.875rem;
 
     .o_ae_approval_header {
-        background-color: var(--o-view-background-color, #ffffff);
-        border-bottom: 1px solid var(--border-color, #dee2e6);
-
-        .btn-link {
-            color: #714B67;
-            font-size: 0.85rem;
-            &:hover {
-                color: #54374d;
-                text-decoration: underline;
-            }
-        }
+        background-color: inherit;
+        border-color: var(--bs-border-color, rgba(0, 0, 0, 0.1)) !important;
     }
 
     .o_ae_approval_items {
         max-height: 400px;
         overflow-y: auto;
+        --bs-list-group-bg: transparent;
+        --bs-list-group-border-color: var(--bs-border-color, rgba(0, 0, 0, 0.08));
     }
 
     .o_ae_approval_item {
-        background-color: var(--o-view-background-color, #ffffff);
-        border-bottom: 1px solid var(--border-color, #f1f1f1);
+        background-color: transparent;
         cursor: pointer;
         transition: background-color 0.15s ease-in-out;
 
         &:hover {
-            background-color: rgba(0, 0, 0, 0.04);
+            background-color: var(--bs-tertiary-bg, rgba(255, 255, 255, 0.05));
         }
 
         &:last-child {
@@ -76,8 +68,8 @@
         height: 38px;
         min-width: 38px;
         border-radius: 50%;
-        background-color: #f3eff2;
-        color: #714B67;
+        background-color: var(--bs-primary-bg-subtle, rgba(113, 75, 103, 0.12));
+        color: var(--bs-primary, #714B67);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -85,17 +77,8 @@
     }
 
     .o_ae_approval_footer {
-        background-color: #f8f9fa;
-        border-top: 1px solid var(--border-color, #dee2e6);
-
-        .btn-link {
-            color: #714B67;
-            font-size: 0.85rem;
-            &:hover {
-                color: #54374d;
-                text-decoration: underline;
-            }
-        }
+        background-color: var(--bs-tertiary-bg, rgba(0, 0, 0, 0.02));
+        border-color: var(--bs-border-color, rgba(0, 0, 0, 0.1)) !important;
     }
 }
 
