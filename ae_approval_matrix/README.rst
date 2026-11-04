@@ -6,13 +6,13 @@ Advanced Approval Matrix
    :target: http://www.gnu.org/licenses/lgpl-3.0-standalone.html
    :alt: License: LGPL-3
 
-.. image:: https://img.shields.io/badge/odoo-17.0-purple.svg
+.. image:: https://img.shields.io/badge/odoo-19.0-purple.svg
    :target: https://www.odoo.com/
-   :alt: Odoo Version: 17.0
+   :alt: Odoo Version: 19.0
 
-**Universal No-Code Multi-Tier Approval Matrix Engine for Any Odoo 17 Document.**
+**Universal No-Code Multi-Tier Approval Matrix Engine for Any Odoo 19 Document.**
 
-`ae_approval_matrix` is an enterprise-grade approval workflow framework developed for Odoo 17. It empowers administrators to attach fully customizable, sequential, multi-tiered approval processes to **any Odoo model** (e.g., *Purchase Orders*, *Sales Orders*, *Vendor Bills*, *Customer Invoices*, *Inventory Transfers*, *Leave Requests*, or custom addons) purely via the user interface without writing Python code, modifying XML views, or restarting the Odoo server.
+`ae_approval_matrix` is an enterprise-grade approval matrix engine developed for Odoo 19. It empowers administrators to attach fully customizable, sequential, multi-tiered approval processes to **any Odoo model** (e.g., *Purchase Orders*, *Sales Orders*, *Vendor Bills*, *Customer Invoices*, *Inventory Transfers*, *Leave Requests*, or custom addons) purely via the user interface without writing Python code, modifying XML views, or restarting the Odoo server.
 
 ----
 
@@ -61,7 +61,7 @@ Each level in an approval matrix supports flexible resolution strategies:
 * **Interactive Systray Widget:** A persistent approval icon in the Odoo navbar with a real-time pending counter badge.
 * **Rich Dropdown Popup:** Clicking the systray icon reveals an interactive notification popover showing pending reviews, document name, model label, review level description, quorum progress, and humanized relative timestamps (*"9 minutes ago"*, *"Yesterday"*).
 * **Direct Document Navigation:** Clicking an item in the popup immediately opens the source document form view.
-* **Instant Real-Time Sync:** Powered by Odoo 17 ``bus.bus`` web notifications. When an approval status changes, systray counters and lists update across all active user sessions instantly.
+* **Instant Real-Time Sync:** Powered by Odoo 19 ``bus.bus`` web notifications. When an approval status changes, systray counters and lists update across all active user sessions instantly.
 
 5. Safe & Resilient Validation Cycle
 ------------------------------------
@@ -110,6 +110,10 @@ Step 1: Create an Approval Matrix
    * **Enforce Sequential Approval:** Check this box to enforce sequential level progression (Level 1 must approve before Level 2 is activated).
    * **Sequence / Priority:** Set the priority order when multiple matrices match the same model (lowest sequence number takes precedence).
    * **Company:** Restrict to a specific company in multi-company setups.
+
+.. image:: static/description/01_matrix_configuration.png
+   :alt: Multi-Tier Approval Matrix Configuration Form
+   :width: 100 %
 
 Step 2: Auto-Scan States & Action Buttons
 -----------------------------------------
@@ -176,6 +180,14 @@ User Workflow & Navigation
 * The system evaluates candidate matrices, binds the appropriate rules, creates ``approval.review`` records, and sets Level 1 to ``pending`` while subsequent levels remain in ``waiting``.
 * Email notifications and Odoo activities are automatically dispatched to Level 1 approvers.
 
+.. image:: static/description/02_document_waiting_approval.png
+   :alt: Document in Waiting Approval State with Action Banner and Locked Buttons
+   :width: 100 %
+
+.. image:: static/description/03_approval_lines_tab.png
+   :alt: Multi-Tier Approval Lines Status Tab on Document Form
+   :width: 100 %
+
 2. Reviewing via Systray Popup
 ------------------------------
 * Approvers see a counter badge in the top navbar.
@@ -183,6 +195,10 @@ User Workflow & Navigation
 * Approvers can inspect record details, model types, review levels, and submission timestamps.
 * Clicking any review row navigates directly to the target document's form view.
 * An approver who has already approved their portion of a quorum level will no longer see the item in their pending list.
+
+.. image:: static/description/04_systray_dropdown.png
+   :alt: OWL Systray Dropdown Menu Showing Pending Approvals
+   :width: 100 %
 
 3. Approving or Rejecting
 -------------------------
@@ -192,6 +208,10 @@ User Workflow & Navigation
   * The next sequential level is automatically set to ``pending``, triggering notifications for the next tier.
   * If the final tier is reached, the overall document status becomes ``approved`` and the configured confirmation action runs automatically.
 * **Reject:** Prompts for a mandatory rejection reason. The document is marked as ``rejected``, notifying the requester via chatter.
+
+.. image:: static/description/05_approval_wizard.png
+   :alt: Interactive Approval and Rejection Comment Dialog
+   :width: 100 %
 
 4. Restarting Validation
 ------------------------
@@ -210,6 +230,10 @@ The module provides an integrated security mechanism to prevent unauthorized tam
 3. Choose the fields that should remain editable (e.g., ``notes``, ``payment_term_id``).
 4. Restrict editability by specific user groups (e.g., allow *Purchase Managers* to edit internal notes even while approval is pending).
 5. All other fields are locked against modifications.
+
+.. image:: static/description/06_field_exceptions.png
+   :alt: Field Edit Protection & Exceptions Configuration
+   :width: 100 %
 
 ----
 
