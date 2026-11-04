@@ -333,8 +333,6 @@ class ApprovalMatrix(models.Model):
     def _clear_matrix_cache(self):
         self.env.registry.clear_cache()
 
-    _clear_workflow_cache = _clear_matrix_cache
-
     # ─── Scanner & Metadata Population ───
     @api.onchange("model_id")
     def _onchange_model_id(self):
@@ -450,8 +448,6 @@ class ApprovalMatrix(models.Model):
             "action_request_approval",
             "action_approve_matrix",
             "action_reject_matrix",
-            "action_approve_workflow",
-            "action_reject_workflow",
             "action_restart_approval",
             "action_view_approval_history",
         }
@@ -541,8 +537,6 @@ class ApprovalMatrix(models.Model):
                 lambda w: not w.company_id or w.company_id.id == comp_id
             )
         return matrices.filtered(lambda w: w.matches(record))
-
-    find_matching_workflows = find_matching_matrices
 
     def _filter_matching_records(self, records):
         """Return the subset of ``records`` matching this matrix' domain."""
@@ -684,11 +678,6 @@ class ApprovalMatrixApprover(models.Model):
         string="Matrix",
         required=True,
         ondelete="cascade",
-    )
-    workflow_id = fields.Many2one(
-        "approval.matrix",
-        related="matrix_id",
-        string="Legacy Matrix Reference",
     )
     res_model = fields.Char(
         string="Model",

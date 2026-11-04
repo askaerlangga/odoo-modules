@@ -85,7 +85,7 @@ class TestApprovalMatrix(TransactionCase):
         ], limit=1)
 
         # Create Matrix
-        cls.workflow = cls.env["approval.matrix"].create({
+        cls.matrix = cls.env["approval.matrix"].create({
             "name": "Partner Approval Matrix",
             "model_id": cls.partner_model.id,
             "company_id": cls.company.id,
@@ -108,13 +108,13 @@ class TestApprovalMatrix(TransactionCase):
             ],
         })
 
-    def test_01_scanner_and_workflow_setup(self):
-        """Test scanning metadata and workflow domain evaluation."""
-        self.workflow.action_scan_model()
-        self.assertTrue(self.workflow.active)
-        self.assertEqual(self.workflow.res_model, "res.partner")
-        self.assertEqual(len(self.workflow.approver_ids), 2)
-        self.assertTrue(self.workflow.matches(self.test_partner))
+    def test_01_scanner_and_matrix_setup(self):
+        """Test scanning metadata and matrix domain evaluation."""
+        self.matrix.action_scan_model()
+        self.assertTrue(self.matrix.active)
+        self.assertEqual(self.matrix.res_model, "res.partner")
+        self.assertEqual(len(self.matrix.approver_ids), 2)
+        self.assertTrue(self.matrix.matches(self.test_partner))
 
     def test_02_request_approval_and_levels(self):
         """Test requesting approval generates correct reviews with sequential activation."""
@@ -149,8 +149,8 @@ class TestApprovalMatrix(TransactionCase):
         self.assertEqual(rev_lvl2.status, "pending")
         self.assertTrue(doc.with_user(self.user_approver_2).approval_user_can_approve)
 
-        # Approver 2 approves Level 2 via native workflow action
-        doc.with_user(self.user_approver_2).action_approve_workflow()
+        # Approver 2 approves Level 2 via native matrix action
+        doc.with_user(self.user_approver_2).action_approve_matrix()
         self.assertEqual(rev_lvl2.status, "approved")
         self.assertEqual(doc.approval_state, "approved")
 
@@ -175,7 +175,7 @@ class TestApprovalMatrix(TransactionCase):
             rev.with_user(self.user_bystander).write({"status": "approved"})
 
         # Level 1 approver rejects with reason via comment wizard
-        wiz_action = doc.with_user(self.user_approver_1).action_reject_workflow()
+        wiz_action = doc.with_user(self.user_approver_1).action_reject_matrix()
         wiz = self.env["approval.comment.wizard"].with_user(self.user_approver_1).with_context(
             wiz_action["context"]
         ).create({"comment": "Missing tax ID"})
@@ -243,8 +243,8 @@ class TestApprovalMatrix(TransactionCase):
         self.assertIn("approval_need_validation", form_view["models"]["res.partner"])
         self.assertIn("approval_state", form_view["models"]["res.partner"])
 
-        # Test parallel workflow (approve_sequence = False)
-        self.workflow.write({"approve_sequence": False})
+        # Test parallel matrix (approve_sequence = False)
+        self.matrix.write({"approve_sequence": False})
         doc = self.env["res.partner"].with_user(self.user_requester).create({
             "name": "Delta Systems",
             "email": "delta@example.com",
@@ -260,11 +260,11 @@ class TestApprovalMatrix(TransactionCase):
         self.assertTrue(doc.with_user(self.user_approver_1).approval_user_can_approve)
         self.assertTrue(doc.with_user(self.user_approver_2).approval_user_can_approve)
 
-        doc.with_user(self.user_approver_2).action_approve_workflow()
+        doc.with_user(self.user_approver_2).action_approve_matrix()
         self.assertEqual(doc.approval_state, "pending")
-        doc.with_user(self.user_approver_1).action_approve_workflow()
+        doc.with_user(self.user_approver_1).action_approve_matrix()
         self.assertEqual(doc.approval_state, "approved")
-        self.workflow.write({"approve_sequence": True})
+        self.matrix.write({"approve_sequence": True})
 
     def test_06_confirmation_and_write_after_approval(self):
         """Test confirming document after approval transitions state and allows write without lock error."""
@@ -314,7 +314,7 @@ class TestApprovalMatrix(TransactionCase):
 
         # Request and approve
         partner.with_user(self.user_requester).action_request_approval()
-        partner.with_user(self.user_approver_1).action_approve_workflow()
+        partner.with_user(self.user_approver_1).action_approve_matrix()
         self.assertEqual(partner.approval_state, "approved")
 
         # Confirming to target state together with metadata fields succeeds
@@ -330,7 +330,7 @@ class TestApprovalMatrix(TransactionCase):
 
     def test_07_level_condition_action_and_domain(self):
         """Verify level condition action opens modal window and has_domain computes correctly."""
-        approver = self.workflow.approver_ids[0]
+        approver = self.matrix.approver_ids[0]
         self.assertFalse(approver.has_domain)
 
         act = approver.action_configure_domain()
@@ -366,14 +366,14 @@ class TestApprovalMatrix(TransactionCase):
     def test_09_display_location_flags(self):
         """show_in_form / show_in_list control injection; at least one must remain enabled."""
         Partner = self.env["res.partner"]
-        self.workflow.show_in_list = False
+        self.matrix.show_in_list = False
         self.assertNotIn(
             "action_request_approval",
             Partner.get_view(view_type="list", action_id=1)["arch"],
         )
         self.assertIn("action_request_approval", Partner.get_view(view_type="form")["arch"])
 
-        self.workflow.write({"show_in_list": True, "show_in_form": False})
+        self.matrix.write({"show_in_list": True, "show_in_form": False})
         self.assertIn(
             "action_request_approval",
             Partner.get_view(view_type="list", action_id=1)["arch"],
@@ -386,7 +386,7 @@ class TestApprovalMatrix(TransactionCase):
         self.assertIn("Approval Required", form_arch)
 
         with self.assertRaises(ValidationError):
-            self.workflow.write({"show_in_list": False, "show_in_form": False})
+            self.matrix.write({"show_in_list": False, "show_in_form": False})
 
     def test_10_batch_compute_consistency_and_queries(self):
         """Batch compute equals per-record compute and does not scale queries with records."""
@@ -394,7 +394,7 @@ class TestApprovalMatrix(TransactionCase):
         partners = Partner.create([{"name": "Batch %d" % i, "user_id": self.user_requester.id} for i in range(20)])
         partners[0].with_user(self.user_requester).action_request_approval()
         partners[1].with_user(self.user_requester).action_request_approval()
-        partners[1].with_user(self.user_approver_1).action_approve_workflow()
+        partners[1].with_user(self.user_approver_1).action_approve_matrix()
 
         def snapshot(recs):
             return [(r.approval_state, r.approval_need_validation, r.approval_user_can_approve,
@@ -432,7 +432,7 @@ class TestApprovalMatrix(TransactionCase):
             "name": "open_commercial_entity",
             "string": "Open Commercial Entity",
         })
-        self.workflow.write({"hide_button_ids": [(4, btn_opt.id)]})
+        self.matrix.write({"hide_button_ids": [(4, btn_opt.id)]})
 
         Partner = self.env["res.partner"]
         arch = '<list><button name="open_commercial_entity" string="Commercial" type="object"/></list>'
@@ -453,7 +453,7 @@ class TestApprovalMatrix(TransactionCase):
             "name": "open_commercial_entity",
             "string": "Open Commercial Entity",
         })
-        self.workflow.write({"auto_reject_button_id": btn_opt.id})
+        self.matrix.write({"auto_reject_button_id": btn_opt.id})
 
         doc = self.env["res.partner"].with_user(self.user_requester).create({
             "name": "Delta Corp",
@@ -473,7 +473,7 @@ class TestApprovalMatrix(TransactionCase):
             "name": "open_commercial_entity",
             "string": "Apply Commercial",
         })
-        self.workflow.write({"hide_button_ids": [(4, btn_opt.id)]})
+        self.matrix.write({"hide_button_ids": [(4, btn_opt.id)]})
 
         Partner = self.env["res.partner"]
         arch = '<list><header><button name="open_commercial_entity" string="Apply Commercial" type="object"/></header></list>'
@@ -490,13 +490,13 @@ class TestApprovalMatrix(TransactionCase):
 
     def test_14_hide_list_custom_buttons(self):
         """When hide_list_custom_buttons is enabled, ae_hide_list_custom_buttons class is injected."""
-        self.workflow.write({"hide_list_custom_buttons": True})
+        self.matrix.write({"hide_list_custom_buttons": True})
         Partner = self.env["res.partner"]
         res = Partner.get_view(view_type="list", action_id=1)
         self.assertIn("ae_hide_list_custom_buttons", res["arch"])
 
         # When disabled, class should not be present
-        self.workflow.write({"hide_list_custom_buttons": False})
+        self.matrix.write({"hide_list_custom_buttons": False})
         res2 = Partner.get_view(view_type="list", action_id=1)
         self.assertNotIn("ae_hide_list_custom_buttons", res2["arch"])
 
@@ -564,7 +564,7 @@ class TestApprovalMatrix(TransactionCase):
 
         # 1. Request and approve
         partner.with_user(self.user_requester).action_request_approval()
-        partner.with_user(self.user_approver_1).action_approve_workflow()
+        partner.with_user(self.user_approver_1).action_approve_matrix()
         self.assertEqual(partner.approval_state, "approved")
 
         # 2. Confirm to target state ('invoice')
@@ -617,7 +617,7 @@ class TestApprovalMatrix(TransactionCase):
 
         # 1. Request and approve
         partner.with_user(self.user_requester).action_request_approval()
-        partner.with_user(self.user_approver_1).action_approve_workflow()
+        partner.with_user(self.user_approver_1).action_approve_matrix()
         self.assertEqual(partner.approval_state, "approved")
         self.assertEqual(len(partner.approval_review_ids), 1)
 
@@ -631,7 +631,7 @@ class TestApprovalMatrix(TransactionCase):
 
         # 3. Request and approve new value
         partner.with_user(self.user_requester).action_request_approval()
-        partner.with_user(self.user_approver_1).action_approve_workflow()
+        partner.with_user(self.user_approver_1).action_approve_matrix()
         self.assertEqual(partner.approval_state, "approved")
 
         # 4. Operation completed / cleared (comment = False, no longer matches matrix domain)
@@ -645,7 +645,7 @@ class TestApprovalMatrix(TransactionCase):
 
     def test_18_dynamic_readonly_modifiers_form_and_tree(self):
         """Form and tree fields get dynamic readonly guard, except exempt/exception fields."""
-        self.workflow.active = True
+        self.matrix.active = True
         Partner = self.env["res.partner"]
 
         # 1. Form View Check
@@ -682,22 +682,22 @@ class TestApprovalMatrix(TransactionCase):
             with self.assertRaises(Exception) as cm:
                 with self.cr.savepoint():
                     self.env["approval.matrix"].create({
-                        "name": self.workflow.name,
-                        "company_id": self.workflow.company_id.id,
-                        "model_id": self.workflow.model_id.id,
+                        "name": self.matrix.name,
+                        "company_id": self.matrix.company_id.id,
+                        "model_id": self.matrix.model_id.id,
                     })
             self.assertIn("approval_matrix_name_company_unique", str(cm.exception))
 
     def test_20_approval_matrix_copy_appends_copy(self):
         """Test duplicating an approval matrix appends '(copy)' and copies approval levels."""
-        copied = self.workflow.copy()
-        self.assertEqual(copied.name, f"{self.workflow.name} (copy)")
-        self.assertEqual(len(copied.approver_ids), len(self.workflow.approver_ids))
-        self.assertEqual(copied.model_id, self.workflow.model_id)
+        copied = self.matrix.copy()
+        self.assertEqual(copied.name, f"{self.matrix.name} (copy)")
+        self.assertEqual(len(copied.approver_ids), len(self.matrix.approver_ids))
+        self.assertEqual(copied.model_id, self.matrix.model_id)
 
         # Second copy should append another (copy) without constraint violation
-        copied_second = self.workflow.copy()
-        self.assertEqual(copied_second.name, f"{self.workflow.name} (copy) (copy)")
+        copied_second = self.matrix.copy()
+        self.assertEqual(copied_second.name, f"{self.matrix.name} (copy) (copy)")
 
     def test_21_auto_and_manual_approval_title(self):
         """Test automatic description (name) generation while allowing manual override."""
@@ -902,7 +902,7 @@ class TestApprovalMatrix(TransactionCase):
             "user_id": self.user_requester.id,
             "company_id": self.company.id,
         })
-        self.workflow.active = True
+        self.matrix.active = True
         partner.with_user(self.user_requester).action_request_approval()
 
         pending_rev = partner.approval_review_ids.filtered(lambda r: r.status == "pending")[0]
@@ -949,7 +949,7 @@ class TestApprovalMatrix(TransactionCase):
 
     def test_27_mail_activity_lifecycle(self):
         """Test mail.activity is automatically scheduled on request and completed on approval."""
-        self.workflow.write({"create_activity": True})
+        self.matrix.write({"create_activity": True})
         partner = self.env["res.partner"].create({
             "name": "Activity Test Partner",
             "user_id": self.user_requester.id,

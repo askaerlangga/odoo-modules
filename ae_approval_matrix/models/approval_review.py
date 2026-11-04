@@ -56,11 +56,6 @@ class ApprovalReview(models.Model):
         ondelete="set null",
         index=True,
     )
-    workflow_id = fields.Many2one(
-        "approval.matrix",
-        related="matrix_id",
-        string="Legacy Matrix Reference",
-    )
     company_id = fields.Many2one(
         "res.company",
         string="Company",
@@ -216,11 +211,11 @@ class ApprovalReview(models.Model):
             users = rec.approved_by_ids | rec.rejected_by_ids
             rec.reviewed_users_display = ", ".join(users.mapped("name")) if users else ""
 
-    @api.depends("matrix_id.company_id", "workflow_id.company_id", "res_model", "res_id")
+    @api.depends("matrix_id.company_id", "res_model", "res_id")
     def _compute_company_id(self):
         by_model = defaultdict(list)
         for rec in self:
-            matrix = rec.matrix_id or rec.workflow_id
+            matrix = rec.matrix_id
             if matrix and matrix.company_id:
                 rec.company_id = matrix.company_id
             elif rec.res_model and rec.res_id and rec.res_model in self.env:
@@ -307,7 +302,7 @@ class ApprovalReview(models.Model):
 
     def _check_sequence_cleared(self):
         self.ensure_one()
-        matrix = self.matrix_id or self.workflow_id
+        matrix = self.matrix_id
         if not matrix or not matrix.approve_sequence:
             return
         lower_reviews = self.env["approval.review"].sudo().search([
@@ -356,7 +351,7 @@ class ApprovalReview(models.Model):
         rev_sudo._bus_notify()
         if is_final:
             doc = self._get_document(sudo=False)
-            matrix = self.matrix_id or self.workflow_id
+            matrix = self.matrix_id
             if matrix and matrix.auto_confirm_button_id:
                 self._execute_auto_confirm(doc)
 
@@ -388,7 +383,7 @@ class ApprovalReview(models.Model):
         rev_sudo._bus_notify()
         if is_rejected:
             doc = self._get_document(sudo=False)
-            matrix = self.matrix_id or self.workflow_id
+            matrix = self.matrix_id
             if matrix and matrix.auto_reject_button_id:
                 self._execute_auto_reject(doc)
 
@@ -423,7 +418,7 @@ class ApprovalReview(models.Model):
         """Execute configured confirmation button/method on final approval."""
         if not doc:
             return
-        matrix = self.matrix_id or self.workflow_id
+        matrix = self.matrix_id
         btn = matrix.auto_confirm_button_id if matrix else False
         if not btn or not btn.name:
             return
@@ -439,7 +434,7 @@ class ApprovalReview(models.Model):
         """Execute configured button/method on document rejection (e.g. action_cancel)."""
         if not doc:
             return
-        matrix = self.matrix_id or self.workflow_id
+        matrix = self.matrix_id
         btn = matrix.auto_reject_button_id if matrix else False
         if not btn or not btn.name:
             return
@@ -453,7 +448,7 @@ class ApprovalReview(models.Model):
 
     def _activate_next_pending(self):
         self.ensure_one()
-        matrix = self.matrix_id or self.workflow_id
+        matrix = self.matrix_id
         if not matrix or not matrix.approve_sequence:
             return False
 
@@ -487,7 +482,7 @@ class ApprovalReview(models.Model):
 
     def _cancel_waiting_on_rejection(self):
         self.ensure_one()
-        matrix = self.matrix_id or self.workflow_id
+        matrix = self.matrix_id
         waiting = self.env["approval.review"].sudo().search([
             ("matrix_id", "=", matrix.id if matrix else False),
             ("res_model", "=", self.res_model),
@@ -663,7 +658,7 @@ class ApprovalReview(models.Model):
         doc = self._get_document(sudo=True)
         if not doc or not hasattr(doc, "activity_schedule"):
             return
-        matrix = self.matrix_id or self.workflow_id
+        matrix = self.matrix_id
         act_type = (matrix.activity_type_id if matrix else False) or self.env.ref("mail.mail_activity_data_todo", raise_if_not_found=False)
         if not act_type:
             return

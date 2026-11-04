@@ -273,8 +273,6 @@ class BaseModelExtend(models.AbstractModel):
             "action_request_approval",
             "action_approve_matrix",
             "action_reject_matrix",
-            "action_approve_workflow",
-            "action_reject_workflow",
             "action_restart_approval",
             "action_view_approval_history",
         }
@@ -462,8 +460,6 @@ class BaseModelExtend(models.AbstractModel):
             "action_request_approval",
             "action_approve_matrix",
             "action_reject_matrix",
-            "action_approve_workflow",
-            "action_reject_workflow",
             "action_restart_approval",
             "action_view_approval_history",
         }
@@ -552,7 +548,7 @@ class BaseModelExtend(models.AbstractModel):
         if not reviews:
             raise UserError(_("You have no pending approval action for this document."))
         review = reviews[0]
-        matrix = review.matrix_id or review.workflow_id
+        matrix = review.matrix_id
         if matrix and matrix.require_approve_comment:
             return {
                 "name": _("Approve Document"),
@@ -570,8 +566,6 @@ class BaseModelExtend(models.AbstractModel):
         review.action_approve()
         self.invalidate_recordset()
         return True
-
-    action_approve_workflow = action_approve_matrix
 
     def action_reject_matrix(self):
         """Native button click handler for 'Reject'."""
@@ -594,8 +588,6 @@ class BaseModelExtend(models.AbstractModel):
                 "default_action_type": "reject",
             },
         }
-
-    action_reject_workflow = action_reject_matrix
 
     def action_view_approval_history(self):
         """Open a modal window showing the approval review history for this document."""
