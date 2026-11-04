@@ -9,14 +9,15 @@ This repository contains a collection of custom Odoo modules developed to add va
 | **Report Domain Visibility** | `ae_report_domain_visibility` | Odoo 18 backport: provides the ability to hide or filter the *Print* menu based on a domain in `ir.actions.report`. | [17.0.1.0.0](../../tree/17.0/ae_report_domain_visibility) |
 | **Datepicker Dynamic Limit** | `ae_datepicker_limit` | Adds support for `min_date_field` and `max_date_field` options on date/datetime fields in the web client to dynamically limit the selectable date range. | [17.0.1.0.0](../../tree/17.0/ae_datepicker_limit) · [18.0.1.0.0](../../tree/18.0/ae_datepicker_limit) |
 | **X2many Search Bar** | `ae_x2many_search` | Adds an Odoo-style client-side search bar with a Group By menu above `one2many` / `many2many` tree views. Supports field-scoped filtering and grouping shown as insertion-ordered facets, collapse/expand per group, and seamless Section & Note support when `account` is installed. | [17.0.2.0.0](../../tree/17.0/ae_x2many_search) |
-| **Advanced Approval Matrix** | `ae_approval_matrix` | Universal No-Code multi-tier approval matrix engine for any Odoo model. Includes metadata auto-scanner, multi-level quorum, HR manager & group resolution, field lock exceptions, and realtime OWL Systray badge. | [17.0.1.0.0](../../tree/17.0/ae_approval_matrix) |
+| **Advanced Approval Matrix** | `ae_approval_matrix` | Universal No-Code multi-tier approval matrix engine for any Odoo model. Includes metadata auto-scanner, multi-level quorum, HR manager & group resolution, field lock exceptions, and realtime OWL Systray badge. | [17.0.1.0.0](../../tree/17.0/ae_approval_matrix) · [19.0.1.0.0](../../tree/19.0/ae_approval_matrix) |
+| **Advanced Approval Matrix - Stock Inventory** | `ae_approval_matrix_stock` | Stock inventory & physical adjustment bridge for Advanced Approval Matrix. Intercepts `stock.quant` adjustments, guards auto-apply, and secures approval workflows. | [19.0.1.0.0](../../tree/19.0/ae_approval_matrix_stock) |
 
 > [!TIP]
 > To download a specific module folder individually, you can use the [GitHub Directory Downloader](https://www.askaerlangga.my.id/github-directory-downloader/).
 
 ## Branches by Odoo Version
 
-To access and download the code for a specific version, please switch to the corresponding branch (e.g., [`17.0`](../../tree/17.0), [`18.0`](../../tree/18.0)).
+To access and download the code for a specific version, please switch to the corresponding branch (e.g., [`17.0`](../../tree/17.0), [`18.0`](../../tree/18.0), [`19.0`](../../tree/19.0)).
 
 ## Installation
 
