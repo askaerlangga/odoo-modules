@@ -3,6 +3,15 @@
 import { ListController } from "@web/views/list/list_controller";
 import { evaluateBooleanExpr } from "@web/core/py_js/py";
 import { patch } from "@web/core/utils/patch";
+import { rpcBus } from "@web/core/network/rpc";
+
+// Invalidate web client disk cache for get_views whenever approval matrices are modified
+rpcBus.addEventListener("RPC:RESPONSE", (ev) => {
+    const params = ev.detail?.data?.params;
+    if (params?.model === "approval.matrix") {
+        rpcBus.trigger("CLEAR-CACHES", "get_views");
+    }
+});
 
 patch(ListController.prototype, {
     evalViewModifier(modifier) {

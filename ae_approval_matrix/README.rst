@@ -14,9 +14,6 @@ Advanced Approval Matrix
 
 `ae_approval_matrix` is an enterprise-grade approval workflow framework developed for Odoo 17. It empowers administrators to attach fully customizable, sequential, multi-tiered approval processes to **any Odoo model** (e.g., *Purchase Orders*, *Sales Orders*, *Vendor Bills*, *Customer Invoices*, *Inventory Transfers*, *Leave Requests*, or custom addons) purely via the user interface without writing Python code, modifying XML views, or restarting the Odoo server.
 
-* **Author:** Aska Erlangga (`https://www.askaerlangga.my.id <https://www.askaerlangga.my.id>`_)
-* **License:** LGPL-3
-
 ----
 
 Table of Contents
@@ -287,10 +284,9 @@ Run the test suite using standard Odoo test commands:
 Bug Tracker & Support
 =====================
 
-If you discover an issue, have feature suggestions, or need custom workflow consulting, please contact:
-
-* **Website:** `https://www.askaerlangga.my.id <https://www.askaerlangga.my.id>`_
-* **Email:** ``contact@askaerlangga.my.id``
+Bugs are tracked on `GitHub Issues <https://github.com/askaerlangga/odoo-modules/issues>`_.
+In case of trouble, please check there to see if your issue has already been reported.
+If you spotted it first, please help us by submitting a detailed bug report.
 
 ----
 

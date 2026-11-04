@@ -17,9 +17,10 @@ class ApprovalMatrixStateOption(models.Model):
     value = fields.Char(string="Technical Value", required=True)
     name = fields.Char(string="Display Label", required=True)
 
-    _sql_constraints = [
-        ("model_val_unique", "unique(model_id, value)", "State value must be unique per model."),
-    ]
+    _model_val_unique = models.Constraint(
+        "UNIQUE(model_id, value)",
+        "State value must be unique per model.",
+    )
 
     @api.depends("name", "value")
     def _compute_display_name(self):
@@ -36,9 +37,10 @@ class ApprovalMatrixButtonOption(models.Model):
     name = fields.Char(string="Button Method/Action", required=True)
     string = fields.Char(string="Button Label", required=True)
 
-    _sql_constraints = [
-        ("model_btn_unique", "unique(model_id, name)", "Button must be unique per model."),
-    ]
+    _model_btn_unique = models.Constraint(
+        "UNIQUE(model_id, name)",
+        "Button must be unique per model.",
+    )
 
     @api.depends("string", "name")
     def _compute_display_name(self):
@@ -211,6 +213,37 @@ class ApprovalMatrix(models.Model):
         domain="[('category', '!=', 'phonecall')]",
     )
 
+    @api.model
+    def _get_model_bridge_requirements(self):
+        """Extensible registry mapping {res_model: (required_module_name, human_label)}."""
+        return {
+            "stock.quant": ("ae_approval_matrix_stock", _("Advanced Approval Matrix - Stock Inventory")),
+        }
+
+    @api.constrains("model_id")
+    def _check_required_bridge_modules(self):
+        bridge_requirements = self._get_model_bridge_requirements()
+        for matrix in self:
+            res_model = matrix.res_model or matrix.model_id.model
+            if not res_model:
+                continue
+            req = bridge_requirements.get(res_model)
+            if req:
+                mod_name, mod_label = req
+                mod = self.env["ir.module.module"].sudo().search([
+                    ("name", "=", mod_name),
+                    ("state", "=", "installed"),
+                ], limit=1)
+                if not mod:
+                    raise ValidationError(_(
+                        "The model '%(model)s' requires the bridge module '%(module)s' (%(label)s) to be installed.\n"
+                        "Please install '%(module)s' before creating an Approval Matrix for this model."
+                    ) % {
+                        "model": matrix.model_id.name or res_model,
+                        "module": mod_name,
+                        "label": mod_label,
+                    })
+
     @api.constrains("show_in_form", "show_in_list")
     def _check_display_locations(self):
         for rec in self:
@@ -231,9 +264,10 @@ class ApprovalMatrix(models.Model):
             if self.search_count(domain) > 0:
                 raise ValidationError(_("Approval matrix name must be unique per company."))
 
-    _sql_constraints = [
-        ("name_company_unique", "unique(name, company_id)", "Approval matrix name must be unique per company."),
-    ]
+    _name_company_unique = models.Constraint(
+        "UNIQUE(name, company_id)",
+        "Approval matrix name must be unique per company.",
+    )
 
     def _auto_init(self):
         from odoo.tools.sql import constraint_definition, drop_constraint
@@ -272,7 +306,6 @@ class ApprovalMatrix(models.Model):
         self._clear_matrix_cache()
         return res
 
-    @api.returns("self", lambda value: value.id)
     def copy(self, default=None):
         default = dict(default or {})
         if not default.get("name"):
@@ -325,6 +358,30 @@ class ApprovalMatrix(models.Model):
 
         self.action_scan_model()
 
+        res_model = self.res_model or self.model_id.model
+        if res_model:
+            req = self._get_model_bridge_requirements().get(res_model)
+            if req:
+                mod_name, mod_label = req
+                mod = self.env["ir.module.module"].sudo().search([
+                    ("name", "=", mod_name),
+                    ("state", "=", "installed"),
+                ], limit=1)
+                if not mod:
+                    return {
+                        "warning": {
+                            "title": _("Bridge Module Required"),
+                            "message": _(
+                                "To enable approval on '%(model)s', please ensure the bridge module "
+                                "'%(module)s' (%(label)s) is installed."
+                            ) % {
+                                "model": self.model_id.name or res_model,
+                                "module": mod_name,
+                                "label": mod_label,
+                            },
+                        }
+                    }
+
     def action_scan_model(self):
         """Scan model selection values and form header buttons (including inherited views)."""
         self.ensure_one()
@@ -360,20 +417,20 @@ class ApprovalMatrix(models.Model):
                 if not self.source_state_ids:
                     defaults = [s.id for s in created_states if s.value in ("draft", "sent", "to_approve")]
                     if defaults:
-                        self.source_state_ids = [(6, 0, defaults)]
+                        self.source_state_ids = [fields.Command.set(defaults)]
                 if not self.target_state_ids:
                     defaults = [s.id for s in created_states if s.value in ("confirm", "confirmed", "sale", "purchase", "posted", "done")]
                     if defaults:
-                        self.target_state_ids = [(6, 0, defaults)]
+                        self.target_state_ids = [fields.Command.set(defaults)]
                 if not self.cancel_state_ids:
                     defaults = [s.id for s in created_states if s.value in ("cancel", "cancelled")]
                     if defaults:
-                        self.cancel_state_ids = [(6, 0, defaults)]
+                        self.cancel_state_ids = [fields.Command.set(defaults)]
 
-        # 2. Scan buttons from combined form and tree views (with fallback to ir.ui.view records)
+        # 2. Scan buttons from combined form and list views (with fallback to ir.ui.view records)
         found_buttons = {}
         arches = []
-        for vtype in ("form", "tree"):
+        for vtype in ("form", "list"):
             try:
                 view_res = ModelObj.with_context(skip_approval_inject=True).get_view(view_type=vtype)
                 if view_res and view_res.get("arch"):
@@ -383,7 +440,7 @@ class ApprovalMatrix(models.Model):
 
         views = self.env["ir.ui.view"].sudo().search([
             ("model", "=", model_name),
-            ("type", "in", ("form", "tree")),
+            ("type", "in", ("form", "list")),
         ], limit=20)
         for v in views:
             if v.arch and v.arch not in arches:
@@ -401,7 +458,7 @@ class ApprovalMatrix(models.Model):
         for arch in arches:
             try:
                 doc = etree.fromstring(arch)
-                is_tree = doc.tag in ("tree", "list")
+                is_list = doc.tag in ("list", "tree")
                 # Scan both header buttons and inline buttons
                 for btn in doc.xpath(".//button"):
                     name = btn.attrib.get("name")
@@ -413,7 +470,7 @@ class ApprovalMatrix(models.Model):
                     parent = btn.getparent()
                     is_header = parent is not None and parent.tag == "header"
 
-                    if is_tree:
+                    if is_list:
                         suffix = " (Header)" if is_header else " (Row)"
                         label = raw_string if raw_string.endswith(suffix) else f"{raw_string}{suffix}"
                     else:
@@ -422,7 +479,7 @@ class ApprovalMatrix(models.Model):
                     if (
                         name not in found_buttons
                         or found_buttons[name] == name
-                        or (is_tree and ("(Header)" in label or "(Row)" in label))
+                        or (is_list and ("(Header)" in label or "(Row)" in label))
                     ):
                         found_buttons[name] = label
             except etree.XMLSyntaxError:
@@ -447,7 +504,7 @@ class ApprovalMatrix(models.Model):
         if not self.hide_button_ids and created_btns:
             defaults = [b.id for b in created_btns if any(k in b.name.lower() for k in ("confirm", "validate", "post", "approve", "apply"))]
             if defaults:
-                self.hide_button_ids = [(6, 0, defaults)]
+                self.hide_button_ids = [fields.Command.set(defaults)]
 
     # ─── Domain Matching ───
     def matches(self, record):
@@ -533,7 +590,7 @@ class ApprovalMatrix(models.Model):
 
         if approver.approver_type == "group":
             if approver.group_id:
-                return approver.group_id.users.filtered(lambda u: u.active)
+                return approver.group_id.all_user_ids.filtered(lambda u: u.active)
             return self.env["res.users"]
 
         requester_uid = False
@@ -607,7 +664,7 @@ class ApprovalMatrix(models.Model):
                 "sequence": idx,
                 "name": header_title,
                 "approval_header": header_title,
-                "approver_ids": [(6, 0, users.ids)],
+                "approver_ids": [fields.Command.set(users.ids)],
                 "minimum_approved": max(1, min_app),
                 "status": "waiting",
             })

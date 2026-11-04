@@ -157,7 +157,29 @@ class ApprovalReview(models.Model):
         for vals in vals_list:
             if not vals.get("name") and vals.get("approval_header"):
                 vals["name"] = vals["approval_header"]
-        return super().create(vals_list)
+        records = super().create(vals_list)
+        for rec in records:
+            doc = rec._get_document(sudo=False)
+            if doc:
+                doc.invalidate_recordset()
+        return records
+
+    def write(self, vals):
+        res = super().write(vals)
+        if any(f in vals for f in ("status", "approved_by_ids", "rejected_by_ids", "approver_ids", "minimum_approved")):
+            for rec in self:
+                doc = rec._get_document(sudo=False)
+                if doc:
+                    doc.invalidate_recordset()
+        return res
+
+    def unlink(self):
+        docs = [rec._get_document(sudo=False) for rec in self]
+        res = super().unlink()
+        for doc in docs:
+            if doc:
+                doc.invalidate_recordset()
+        return res
 
     def _auto_init(self):
         res = super()._auto_init()
@@ -176,13 +198,7 @@ class ApprovalReview(models.Model):
         """)
         return res
 
-    def init(self):
-        tools.create_index(
-            self._cr,
-            "approval_review_model_res_status_idx",
-            self._table,
-            ["res_model", "res_id", "status"],
-        )
+    _model_res_status_idx = models.Index("(res_model, res_id, status)")
 
     @api.depends("res_name", "name", "approval_header", "sequence")
     def _compute_display_name(self):
@@ -269,8 +285,7 @@ class ApprovalReview(models.Model):
         doc = self._get_document(sudo=False)
         if not doc or not doc.exists():
             raise UserError(_("The referenced document does not exist or has been deleted."))
-        doc.check_access_rights("read")
-        doc.check_access_rule("read")
+        doc.check_access("read")
 
         return {
             "type": "ir.actions.act_window",
@@ -339,6 +354,11 @@ class ApprovalReview(models.Model):
         else:
             rev_sudo._close_user_activity(uid)
         rev_sudo._bus_notify()
+        if is_final:
+            doc = self._get_document(sudo=False)
+            matrix = self.matrix_id or self.workflow_id
+            if matrix and matrix.auto_confirm_button_id:
+                self._execute_auto_confirm(doc)
 
     def action_reject(self, reason=False):
         self.ensure_one()
@@ -362,10 +382,15 @@ class ApprovalReview(models.Model):
 
         rev_sudo = self.sudo()
         rev_sudo.write(vals)
-        rev_sudo._update_status_after_action()
+        is_rejected = rev_sudo._update_status_after_action()
         self._notify_rejected()
         rev_sudo._close_all_activities()
         rev_sudo._bus_notify()
+        if is_rejected:
+            doc = self._get_document(sudo=False)
+            matrix = self.matrix_id or self.workflow_id
+            if matrix and matrix.auto_reject_button_id:
+                self._execute_auto_reject(doc)
 
     def _update_status_after_action(self):
         self.ensure_one()
@@ -384,17 +409,14 @@ class ApprovalReview(models.Model):
                     is_final = True
                     if doc and hasattr(doc, "_on_approval_approved"):
                         doc._on_approval_approved()
-                    matrix = self.matrix_id or self.workflow_id
-                    if matrix and matrix.auto_confirm_button_id:
-                        self._execute_auto_confirm(doc)
         elif self.rejected_count >= self.minimum_approved:
             self.status = "rejected"
             self._cancel_waiting_on_rejection()
             if doc and hasattr(doc, "_on_approval_rejected"):
                 doc._on_approval_rejected(reason=self.rejection_reason)
-            matrix = self.matrix_id or self.workflow_id
-            if matrix and matrix.auto_reject_button_id:
-                self._execute_auto_reject(doc)
+            is_final = True
+        if doc:
+            doc.invalidate_recordset()
         return is_final
 
     def _execute_auto_confirm(self, doc):
@@ -411,7 +433,7 @@ class ApprovalReview(models.Model):
             return
         if hasattr(doc, method_name):
             doc.invalidate_recordset()
-            getattr(doc, method_name)()
+            getattr(doc.with_context(skip_approval_check=True), method_name)()
 
     def _execute_auto_reject(self, doc):
         """Execute configured button/method on document rejection (e.g. action_cancel)."""
@@ -427,7 +449,7 @@ class ApprovalReview(models.Model):
             return
         if hasattr(doc, method_name):
             doc.invalidate_recordset()
-            getattr(doc, method_name)()
+            getattr(doc.with_context(skip_approval_check=True), method_name)()
 
     def _activate_next_pending(self):
         self.ensure_one()
@@ -689,38 +711,7 @@ class ApprovalReview(models.Model):
             activities.unlink()
 
     def _bus_notify(self):
-        doc = self._get_document(sudo=True)
-        if not doc or not hasattr(doc, "activity_ids"):
-            return
-        activities = doc.activity_ids.filtered(
-            lambda a: a.user_id.id == user_id and (
-                "Approval Required" in (a.summary or "")
-                or "Approval Needed" in (a.summary or "")
-                or (self.name and self.name in (a.summary or ""))
-                or (self.approval_header and self.approval_header in (a.summary or ""))
-            )
-        )
-        if activities:
-            activities.action_done()
-
-    def _close_all_activities(self):
-        doc = self._get_document(sudo=True)
-        if not doc or not hasattr(doc, "activity_ids"):
-            return
-        approver_uids = self.approver_ids.ids
-        activities = doc.activity_ids.filtered(
-            lambda a: a.user_id.id in approver_uids and (
-                "Approval Required" in (a.summary or "")
-                or "Approval Needed" in (a.summary or "")
-                or (self.name and self.name in (a.summary or ""))
-                or (self.approval_header and self.approval_header in (a.summary or ""))
-            )
-        )
-        if activities:
-            activities.unlink()
-
-    def _bus_notify(self):
-        """Notify users via Odoo 17 bus.bus to update systray realtime."""
+        """Notify users via bus.bus to update systray realtime."""
         partners = self.approver_ids.mapped("partner_id")
         for partner in partners:
             self.env["bus.bus"]._sendone(partner, "approval_matrix/updated", {"status": "updated"})

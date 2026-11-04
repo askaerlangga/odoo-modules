@@ -75,7 +75,7 @@
     <template id="approval_reviews">
         <div>
             <field name="approval_review_ids" invisible="not approval_review_ids" readonly="1" class="w-100 mt-2">
-                <tree create="0" delete="0" edit="0"
+                <list create="0" delete="0" edit="0"
                       decoration-success="status == 'approved'"
                       decoration-danger="status == 'rejected'"
                       decoration-info="status == 'pending'"
@@ -92,23 +92,22 @@
                     <field name="action_datetime" string="Action Date"/>
                     <field name="comment" string="Comment"/>
                     <field name="rejection_reason" string="Rejection Reason"/>
-                </tree>
+                </list>
             </field>
         </div>
     </template>
 
     <template id="approval_list_fields">
         <div>
-            <field name="approval_state" column_invisible="1"/>
-            <field name="approval_need_validation" column_invisible="1"/>
-            <field name="approval_user_can_approve" column_invisible="1"/>
-            <field name="approval_can_restart" column_invisible="1"/>
+            <field name="approval_need_validation" column_invisible="True"/>
+            <field name="approval_user_can_approve" column_invisible="True"/>
+            <field name="approval_can_restart" column_invisible="True"/>
         </div>
     </template>
 
     <template id="approval_list_status">
         <div>
-            <field name="approval_state" string="Approval" widget="badge" optional="show" readonly="1"
+            <field name="approval_state" string="Approval" widget="badge" readonly="1"
                    decoration-success="approval_state == 'approved'"
                    decoration-danger="approval_state == 'rejected'"
                    decoration-warning="approval_state in ('waiting', 'pending')"

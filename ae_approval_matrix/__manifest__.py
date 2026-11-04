@@ -1,6 +1,6 @@
 {
     "name": "Advanced Approval Matrix",
-    "version": "17.0.1.0.0",
+    "version": "19.0.1.0.0",
     "category": "Technical",
     "summary": "Universal Multi-Tier Approval Matrix Engine for Any Odoo Document",
     "author": "Aska Erlangga",

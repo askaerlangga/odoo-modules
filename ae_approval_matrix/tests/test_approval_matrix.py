@@ -1,5 +1,6 @@
 from lxml import etree
 
+from odoo.fields import Command
 from odoo.tests.common import TransactionCase
 from odoo.tools.misc import mute_logger
 from odoo.exceptions import AccessError, UserError, ValidationError
@@ -20,31 +21,31 @@ class TestApprovalMatrix(TransactionCase):
             "name": "Test Requester",
             "login": "test_requester",
             "email": "requester@example.com",
-            "groups_id": [(6, 0, [user_group, partner_mgr_group])],
+            "group_ids": [(6, 0, [user_group, partner_mgr_group])],
         })
         cls.user_approver_1 = cls.env["res.users"].create({
             "name": "Approver Level 1",
             "login": "test_approver1",
             "email": "approver1@example.com",
-            "groups_id": [(6, 0, [user_group, partner_mgr_group])],
+            "group_ids": [(6, 0, [user_group, partner_mgr_group])],
         })
         cls.user_approver_2 = cls.env["res.users"].create({
             "name": "Approver Level 2",
             "login": "test_approver2",
             "email": "approver2@example.com",
-            "groups_id": [(6, 0, [user_group, partner_mgr_group])],
+            "group_ids": [(6, 0, [user_group, partner_mgr_group])],
         })
         cls.user_bystander = cls.env["res.users"].create({
             "name": "Random Bystander",
             "login": "test_bystander",
             "email": "bystander@example.com",
-            "groups_id": [(6, 0, [user_group, partner_mgr_group])],
+            "group_ids": [(6, 0, [user_group, partner_mgr_group])],
         })
         cls.user_manager = cls.env["res.users"].create({
             "name": "Approval Manager",
             "login": "test_app_manager",
             "email": "manager@example.com",
-            "groups_id": [(6, 0, [
+            "group_ids": [(6, 0, [
                 cls.env.ref("base.group_user").id,
                 cls.env.ref("ae_approval_matrix.group_approval_manager").id,
             ])],
@@ -345,21 +346,21 @@ class TestApprovalMatrix(TransactionCase):
     def test_08_list_arch_injection(self):
         """Main list view (with action_id or dynamic top-level) gets badge + row buttons; dialogs stay untouched."""
         Partner = self.env["res.partner"]
-        res = Partner.get_view(view_type="tree", action_id=1)
+        res = Partner.get_view(view_type="list", action_id=1)
         for token in ("action_request_approval", "action_approve_matrix",
                       "action_reject_matrix", "action_restart_approval", "button_group"):
             self.assertIn(token, res["arch"])
         self.assertIn("approval_state", res["models"]["res.partner"])
 
         # Top-level dynamic list view without action_id (e.g. stock.quant.action_view_inventory) gets injected
-        dynamic_list = Partner.get_view(view_type="tree")
+        dynamic_list = Partner.get_view(view_type="list")
         self.assertIn("action_request_approval", dynamic_list["arch"])
 
         # Dialog selector list view (e.g. Many2one 'Search More...') stays untouched
-        dialog_list = Partner.with_context(is_dialog=True).get_view(view_type="tree")
+        dialog_list = Partner.with_context(is_dialog=True).get_view(view_type="list")
         self.assertNotIn("action_request_approval", dialog_list["arch"])
 
-        no_inject = Partner.with_context(skip_approval_inject=True).get_view(view_type="tree", action_id=1)
+        no_inject = Partner.with_context(skip_approval_inject=True).get_view(view_type="list", action_id=1)
         self.assertNotIn("action_request_approval", no_inject["arch"])
 
     def test_09_display_location_flags(self):
@@ -368,14 +369,14 @@ class TestApprovalMatrix(TransactionCase):
         self.workflow.show_in_list = False
         self.assertNotIn(
             "action_request_approval",
-            Partner.get_view(view_type="tree", action_id=1)["arch"],
+            Partner.get_view(view_type="list", action_id=1)["arch"],
         )
         self.assertIn("action_request_approval", Partner.get_view(view_type="form")["arch"])
 
         self.workflow.write({"show_in_list": True, "show_in_form": False})
         self.assertIn(
             "action_request_approval",
-            Partner.get_view(view_type="tree", action_id=1)["arch"],
+            Partner.get_view(view_type="list", action_id=1)["arch"],
         )
         form_arch = Partner.get_view(view_type="form")["arch"]
         self.assertNotIn("action_request_approval", form_arch)
@@ -434,14 +435,14 @@ class TestApprovalMatrix(TransactionCase):
         self.workflow.write({"hide_button_ids": [(4, btn_opt.id)]})
 
         Partner = self.env["res.partner"]
-        arch = '<tree><button name="open_commercial_entity" string="Commercial" type="object"/></tree>'
+        arch = '<list><button name="open_commercial_entity" string="Commercial" type="object"/></list>'
         view = self.env["ir.ui.view"].create({
             "name": "test_partner_tree_btn",
             "model": "res.partner",
-            "type": "tree",
+            "type": "list",
             "arch": arch,
         })
-        res = Partner.get_view(view_id=view.id, view_type="tree", action_id=1)
+        res = Partner.get_view(view_id=view.id, view_type="list", action_id=1)
         self.assertIn('name="open_commercial_entity"', res["arch"])
         self.assertIn("approval_state != 'approved'", res["arch"])
 
@@ -475,14 +476,14 @@ class TestApprovalMatrix(TransactionCase):
         self.workflow.write({"hide_button_ids": [(4, btn_opt.id)]})
 
         Partner = self.env["res.partner"]
-        arch = '<tree><header><button name="open_commercial_entity" string="Apply Commercial" type="object"/></header></tree>'
+        arch = '<list><header><button name="open_commercial_entity" string="Apply Commercial" type="object"/></header></list>'
         view = self.env["ir.ui.view"].create({
             "name": "test_partner_tree_header_btn",
             "model": "res.partner",
-            "type": "tree",
+            "type": "list",
             "arch": arch,
         })
-        res = Partner.get_view(view_id=view.id, view_type="tree", action_id=1)
+        res = Partner.get_view(view_id=view.id, view_type="list", action_id=1)
         # Header button gets dynamic approval guard
         self.assertIn('name="open_commercial_entity"', res["arch"])
         self.assertIn("approval_state != 'approved'", res["arch"])
@@ -491,12 +492,12 @@ class TestApprovalMatrix(TransactionCase):
         """When hide_list_custom_buttons is enabled, ae_hide_list_custom_buttons class is injected."""
         self.workflow.write({"hide_list_custom_buttons": True})
         Partner = self.env["res.partner"]
-        res = Partner.get_view(view_type="tree", action_id=1)
+        res = Partner.get_view(view_type="list", action_id=1)
         self.assertIn("ae_hide_list_custom_buttons", res["arch"])
 
         # When disabled, class should not be present
         self.workflow.write({"hide_list_custom_buttons": False})
-        res2 = Partner.get_view(view_type="tree", action_id=1)
+        res2 = Partner.get_view(view_type="list", action_id=1)
         self.assertNotIn("ae_hide_list_custom_buttons", res2["arch"])
 
     def test_15_action_view_approval_history(self):
@@ -652,8 +653,8 @@ class TestApprovalMatrix(TransactionCase):
         form_arch = form_res["arch"]
         self.assertIn("approval_state in ('waiting', 'pending')", form_arch)
 
-        # 2. Tree View Check
-        tree_res = Partner.get_view(view_type="tree", action_id=1)
+        # 2. List View Check
+        tree_res = Partner.get_view(view_type="list", action_id=1)
         tree_arch = tree_res["arch"]
         self.assertIn("approval_state in ('waiting', 'pending')", tree_arch)
 
@@ -1064,6 +1065,55 @@ class TestApprovalMatrix(TransactionCase):
         data_u2 = self.env["res.users"].with_user(self.user_approver_2).get_pending_approval_reviews()
         self.assertEqual(data_u2["count"], 1)
         self.assertEqual(len(data_u2["reviews"]), 1)
+
+    def test_30_draft_fields_editable_before_approval(self):
+        """Fields are freely editable in draft, and become read-only only during validation."""
+        partner = self.env["res.partner"].create({
+            "name": "Draft Test Partner",
+            "company_id": self.company.id,
+            "user_id": self.user_requester.id,
+            "phone": "111222333",
+        })
+        self.assertTrue(partner.approval_need_validation)
+        self.assertEqual(partner.approval_state, "draft")
+
+        # 1. In draft, field can be updated freely
+        partner.write({"phone": "999888777", "website": "https://example.com"})
+        self.assertEqual(partner.phone, "999888777")
+        self.assertEqual(partner.website, "https://example.com")
+
+        # 2. Check view injection: fields have readonly modifier only while in review ('waiting', 'pending')
+        view_res = partner.get_view(view_type="form")
+        from lxml import etree
+        doc = etree.XML(view_res["arch"])
+        field_nodes = doc.xpath(".//field[@name='phone']")
+        if field_nodes:
+            ro_attr = field_nodes[0].attrib.get("readonly", "")
+            self.assertIn("approval_state in ('waiting', 'pending')", ro_attr)
+            self.assertNotIn("approval_state != 'approved'", ro_attr)
+
+        # 3. Once submitted for approval, fields are locked under validation
+        partner.action_request_approval()
+        self.assertEqual(partner.approval_state, "pending")
+        with self.assertRaises(ValidationError):
+            partner.with_user(self.user_requester).write({"phone": "000000000"})
+
+    def test_31_bridge_module_requirement(self):
+        """Matrix creation validates required bridge modules."""
+        from unittest.mock import patch
+        partner_model = self.env["ir.model"].search([("model", "=", "res.partner")], limit=1)
+
+        matrix_cls = type(self.env["approval.matrix"])
+        fake_reqs = {"res.partner": ("non_existent_bridge_module", "Non Existent Bridge")}
+
+        with patch.object(matrix_cls, "_get_model_bridge_requirements", return_value=fake_reqs):
+            with self.assertRaises(ValidationError) as cm:
+                self.env["approval.matrix"].create({
+                    "name": "Partner With Missing Bridge",
+                    "model_id": partner_model.id,
+                    "company_id": self.company.id,
+                })
+            self.assertIn("non_existent_bridge_module", str(cm.exception))
 
 
 

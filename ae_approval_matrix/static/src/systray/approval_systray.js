@@ -4,6 +4,7 @@ import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { Component, useState, onWillStart } from "@odoo/owl";
 import { Dropdown } from "@web/core/dropdown/dropdown";
+import { useDropdownState } from "@web/core/dropdown/dropdown_hooks";
 
 export class ApprovalSystray extends Component {
     static template = "ae_approval_matrix.ApprovalSystray";
@@ -14,6 +15,7 @@ export class ApprovalSystray extends Component {
         this.orm = useService("orm");
         this.action = useService("action");
         this.busService = this.env.services.bus_service;
+        this.dropdown = useDropdownState();
         this.state = useState({
             count: 0,
             reviews: [],
@@ -51,7 +53,7 @@ export class ApprovalSystray extends Component {
     }
 
     openReview(review) {
-        document.body.click();
+        this.dropdown.close();
         if (review.res_model && review.res_id) {
             this.action.doAction({
                 type: "ir.actions.act_window",
@@ -72,7 +74,7 @@ export class ApprovalSystray extends Component {
     }
 
     openMyApprovals() {
-        document.body.click();
+        this.dropdown.close();
         this.action.doAction("ae_approval_matrix.action_my_approval_review");
     }
 }

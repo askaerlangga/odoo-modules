@@ -55,7 +55,6 @@ class BaseModelExtend(models.AbstractModel):
         inverse_name="res_id",
         string="Approval Reviews",
         domain=lambda self: [("res_model", "=", self._name)],
-        auto_join=True,
     )
 
     @api.model
@@ -240,25 +239,24 @@ class BaseModelExtend(models.AbstractModel):
     @api.model
     def _inject_approval_list_arch(self, res, **options):
         """Add the approval status badge and per-row action buttons to a main list view."""
-        View = self.env["ir.ui.view"]
         doc = etree.XML(res["arch"])
         if doc.tag not in ("tree", "list"):
             return res
         all_models = dict(res.get("models", {}))
 
-        def _render(template):
-            node = etree.fromstring(self.env["ir.qweb"]._render(template))
-            arch, models_ = View.postprocess_and_fields(node, model=self._name)
-            _merge_view_fields(all_models, models_)
-            return list(etree.fromstring(arch))
+        def _render_nodes(template):
+            xml_content = self.env["ir.qweb"]._render(template)
+            node = etree.fromstring(xml_content)
+            return list(node)
 
-        for el in _render("ae_approval_matrix.approval_list_fields"):
+        for el in _render_nodes("ae_approval_matrix.approval_list_fields"):
             doc.append(el)
-        for el in _render("ae_approval_matrix.approval_list_status"):
+        for el in _render_nodes("ae_approval_matrix.approval_list_status"):
             doc.append(el)
         group = etree.SubElement(doc, "button_group")
-        for el in _render("ae_approval_matrix.approval_list_buttons"):
-            group.append(el)
+        for el in _render_nodes("ae_approval_matrix.approval_list_buttons"):
+            if el.tag == "button":
+                group.append(el)
 
         # Override buttons in tree: hide buttons configured in hide_button_ids while not approved
         matrices = self.env["approval.matrix"].sudo().search([
@@ -313,8 +311,6 @@ class BaseModelExtend(models.AbstractModel):
             if "ae_hide_list_custom_buttons" not in existing_cls:
                 doc.attrib["class"] = f"{existing_cls} ae_hide_list_custom_buttons".strip()
 
-        self._inject_approval_readonly_modifiers(doc)
-
         all_models[self._name] = tuple(set(all_models.get(self._name, ())) | {
             "approval_state",
             "approval_need_validation",
@@ -366,6 +362,7 @@ class BaseModelExtend(models.AbstractModel):
             curr_ro = field_node.attrib.get("readonly")
             if curr_ro in ("1", "True", "true"):
                 continue
+
             if curr_ro:
                 field_node.attrib["readonly"] = f"({curr_ro}) or ({guard_expr})"
             else:
@@ -508,8 +505,7 @@ class BaseModelExtend(models.AbstractModel):
     def action_request_approval(self):
         """Native button click handler for 'Request Approval'."""
         self.ensure_one()
-        self.check_access_rights("write")
-        self.check_access_rule("write")
+        self.check_access("write")
 
         matrices = self.env["approval.matrix"].sudo().find_matching_matrices(self._name, self)
         if not matrices:
@@ -550,8 +546,7 @@ class BaseModelExtend(models.AbstractModel):
     def action_approve_matrix(self):
         """Native button click handler for 'Approve'."""
         self.ensure_one()
-        self.check_access_rights("read")
-        self.check_access_rule("read")
+        self.check_access("read")
 
         reviews = self.approval_review_ids.filtered(lambda r: r.user_can_approve)
         if not reviews:
@@ -581,8 +576,7 @@ class BaseModelExtend(models.AbstractModel):
     def action_reject_matrix(self):
         """Native button click handler for 'Reject'."""
         self.ensure_one()
-        self.check_access_rights("read")
-        self.check_access_rule("read")
+        self.check_access("read")
 
         reviews = self.approval_review_ids.filtered(lambda r: r.user_can_approve)
         if not reviews:
@@ -613,8 +607,8 @@ class BaseModelExtend(models.AbstractModel):
             "name": _("Approval History - %s") % doc_name,
             "type": "ir.actions.act_window",
             "res_model": "approval.review",
-            "view_mode": "tree,form",
-            "views": [(view_tree_id, "tree"), (view_form_id, "form")],
+            "view_mode": "list,form",
+            "views": [(view_tree_id, "list"), (view_form_id, "form")],
             "domain": [("res_model", "=", self._name), ("res_id", "=", self.id)],
             "target": "new",
             "context": {
@@ -628,8 +622,7 @@ class BaseModelExtend(models.AbstractModel):
     def action_restart_approval(self):
         """Native button click handler for 'Restart Validation'."""
         self.ensure_one()
-        self.check_access_rights("write")
-        self.check_access_rule("write")
+        self.check_access("write")
 
         if not self.approval_can_restart:
             raise AccessError(_("You are not authorized to restart validation for this document."))
@@ -670,7 +663,7 @@ class BaseModelExtend(models.AbstractModel):
 
         res = super().write(vals)
 
-        # ─── Post-Write Lifecycle for Non-State Models (e.g. stock.quant) ───
+        # ─── Post-Write Lifecycle for Non-State Models (without state tracking) ───
         ignored = _BASE_IGNORED_FIELDS | {"write_date", "write_uid", "create_date", "create_uid"}
         modified_fields = {
             f for f in (set(vals.keys()) - ignored)
@@ -867,7 +860,7 @@ class BaseModelExtend(models.AbstractModel):
             domain.append(("allow_write_after_validation", "=", True))
 
         exceptions = self.env["approval.exception"].sudo().search(domain)
-        user_groups = self.env.user.groups_id.ids
+        user_groups = self.env.user.all_group_ids.ids
         allowed_fields = set()
         for exc in exceptions:
             if not exc.group_ids or any(g in user_groups for g in exc.group_ids.ids):

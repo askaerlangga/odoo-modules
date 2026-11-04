@@ -1,7 +1,7 @@
 .o_ae_approval_systray {
     height: 100%;
 
-    .dropdown-toggle {
+    &.dropdown-toggle, .dropdown-toggle {
         display: flex;
         align-items: center;
         height: 100%;

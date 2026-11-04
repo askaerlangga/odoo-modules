@@ -2,19 +2,19 @@
 <templates xml:space="preserve">
     <t t-name="ae_approval_matrix.ApprovalSystray">
         <Dropdown position="'bottom-end'"
-                  autoOpen="false"
+                  state="dropdown"
                   beforeOpen.bind="onBeforeOpen"
-                  class="'o_ae_approval_systray d-flex align-items-center h-100'"
-                  togglerClass="'position-relative'"
                   menuClass="'p-0 o_ae_approval_menu shadow-lg border-0 rounded-2'"
-                  title="'Pending Approvals'">
-            <t t-set-slot="toggler">
+                  bottomSheet="false">
+            <button class="o_ae_approval_systray dropdown-toggle d-flex align-items-center h-100 position-relative border-0 bg-transparent px-2"
+                    title="Pending Approvals"
+                    type="button">
                 <i class="fa fa-check-square-o fa-lg" role="img" aria-label="Pending Approvals"/>
                 <span t-if="state.count > 0" class="badge rounded-pill bg-danger position-absolute top-0 start-50 translate-middle-x">
-                    <t t-esc="state.count"/>
+                    <t t-out="state.count"/>
                 </span>
-            </t>
-            <t t-set-slot="default">
+            </button>
+            <t t-set-slot="content">
                 <div class="d-flex flex-column bg-view">
                     <!-- Header -->
                     <div class="o_ae_approval_header d-flex align-items-center justify-content-between px-3 py-2">
@@ -47,18 +47,18 @@
                                 <!-- Details -->
                                 <div class="flex-grow-1 overflow-hidden">
                                     <div class="d-flex justify-content-between align-items-baseline">
-                                        <span class="fw-bold text-dark text-truncate me-2" t-esc="review.res_name"/>
-                                        <span class="text-muted small text-nowrap" t-esc="review.time_ago"/>
+                                        <span class="fw-bold text-dark text-truncate me-2" t-out="review.res_name"/>
+                                        <span class="text-muted small text-nowrap" t-out="review.time_ago"/>
                                     </div>
                                     <div class="d-flex justify-content-between align-items-center mt-1">
                                         <span class="text-muted small text-truncate">
-                                            <t t-esc="review.model_name"/> • <t t-esc="review.name"/>
+                                            <t t-out="review.model_name"/> • <t t-out="review.name"/>
                                         </span>
                                         <span t-if="review.minimum_approved > 1"
                                               class="badge rounded-pill bg-secondary text-white ms-2 text-nowrap"
                                               title="Quorum approval progress"
                                               style="font-size: 0.68rem;">
-                                            <t t-esc="review.approved_count"/>/<t t-esc="review.minimum_approved"/>
+                                            <t t-out="review.approved_count"/>/<t t-out="review.minimum_approved"/>
                                         </span>
                                     </div>
                                 </div>
@@ -71,7 +71,7 @@
                         <button type="button"
                                 class="btn btn-sm btn-link w-100 fw-bold text-decoration-none"
                                 t-on-click="openMyApprovals">
-                            View All Pending Approvals (<t t-esc="state.count"/>)
+                            View All Pending Approvals (<t t-out="state.count"/>)
                         </button>
                     </div>
                 </div>

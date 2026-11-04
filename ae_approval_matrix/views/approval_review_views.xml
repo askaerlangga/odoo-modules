@@ -1,10 +1,10 @@
 <odoo>
     <!-- ─── approval.review ─── -->
     <record id="view_approval_review_tree_dialog" model="ir.ui.view">
-        <field name="name">approval.review.tree.dialog</field>
+        <field name="name">approval.review.list.dialog</field>
         <field name="model">approval.review</field>
         <field name="arch" type="xml">
-            <tree string="Approval History" default_order="sequence, id" create="false" edit="false" delete="false"
+            <list string="Approval History" default_order="sequence, id" create="false" edit="false" delete="false"
                   decoration-success="status == 'approved'"
                   decoration-danger="status == 'rejected'"
                   decoration-info="status == 'pending'"
@@ -22,15 +22,15 @@
                 <field name="action_datetime" string="Action Date"/>
                 <field name="comment" string="Comment"/>
                 <field name="rejection_reason" string="Rejection Reason"/>
-            </tree>
+            </list>
         </field>
     </record>
 
     <record id="view_approval_review_tree" model="ir.ui.view">
-        <field name="name">approval.review.tree</field>
+        <field name="name">approval.review.list</field>
         <field name="model">approval.review</field>
         <field name="arch" type="xml">
-            <tree string="Approval Reviews" default_order="sequence, id" create="false" edit="false">
+            <list string="Approval Reviews" default_order="sequence, id" create="false" edit="false">
                 <field name="sequence" string="Level"/>
                 <field name="res_name" string="Document"/>
                 <field name="res_model" string="Model"/>
@@ -48,7 +48,7 @@
                 <button name="action_open_document" type="object"
                     string="Open Document" icon="fa-external-link"
                     class="btn-link"/>
-            </tree>
+            </list>
         </field>
     </record>
 
@@ -115,11 +115,7 @@
                         </group>
                     </group>
                 </sheet>
-                <div class="oe_chatter">
-                    <field name="message_follower_ids"/>
-                    <field name="activity_ids"/>
-                    <field name="message_ids"/>
-                </div>
+                <chatter/>
             </form>
         </field>
     </record>
@@ -144,7 +140,7 @@
                 <filter name="rejected" string="Rejected"
                     domain="[('status', '=', 'rejected')]"/>
                 <separator/>
-                <group expand="0" string="Group By">
+                <group>
                     <filter name="group_by_model" string="Model" context="{'group_by': 'res_model'}"/>
                     <filter name="group_by_status" string="Status" context="{'group_by': 'status'}"/>
                     <filter name="group_by_matrix" string="Approval Matrix" context="{'group_by': 'matrix_id'}"/>
@@ -156,7 +152,7 @@
     <record id="action_approval_review" model="ir.actions.act_window">
         <field name="name">All Approval Reviews</field>
         <field name="res_model">approval.review</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_approval_review_search"/>
         <field name="context">{'search_default_all_pending': 1}</field>
     </record>
@@ -164,7 +160,7 @@
     <record id="action_my_approval_review" model="ir.actions.act_window">
         <field name="name">My Pending Approvals</field>
         <field name="res_model">approval.review</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_approval_review_search"/>
         <field name="domain">[('approver_ids', 'in', [uid]), ('status', '=', 'pending'), ('approved_by_ids', 'not in', [uid])]</field>
         <field name="context">{'search_default_my_pending': 1}</field>
