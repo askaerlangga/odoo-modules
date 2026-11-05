@@ -5,6 +5,10 @@ X2many Search Bar
 Adds a client-side **search bar** and **group by** button above ``one2many`` / ``many2many``
 list views inside notebook pages.
 
+.. image:: static/description/images/main_screenshot.png
+   :alt: X2many Search Bar overview
+   :width: 100%
+
 Features
 --------
 
@@ -40,6 +44,10 @@ Options
 Search Bar — Behaviour
 ----------------------
 
+.. image:: static/description/images/search_bar.png
+   :alt: Search bar with facet chips
+   :width: 100%
+
 1. Type a query → a dropdown appears listing available fields.
 2. Click a field (or press **Enter** to auto-select the first) → a filter facet
    ``[Field]  value  ×`` appears in the search bar and records are filtered.
@@ -50,6 +58,10 @@ Search Bar — Behaviour
 
 Group By — Behaviour
 --------------------
+
+.. image:: static/description/images/group_by.png
+   :alt: Group By menu and collapsed groups
+   :width: 100%
 
 1. Click the caret (**▾**) next to the search bar → the Group By menu opens.
 2. Click a field → records are sorted and grouped, and a group facet appears in
