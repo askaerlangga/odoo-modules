@@ -30,12 +30,52 @@ export function isColumnInvisible(col, evalContext) {
 }
 
 export function getFieldStringValue(record, fieldName) {
+    if (!record || !record.data) {
+        return null;
+    }
     const val = record.data[fieldName];
     if (val === undefined || val === null || val === false) {
         return null;
     }
+    if (val && typeof val === "object" && Array.isArray(val.records)) {
+        const names = val.records
+            .map((r) => r.data?.display_name || r.data?.name || getFieldStringValue(r, "display_name"))
+            .filter(Boolean);
+        return names.length ? names.join(", ") : null;
+    }
     if (Array.isArray(val)) {
-        return String(val[1] ?? "");
+        if (val.length === 2 && typeof val[0] === "number" && typeof val[1] === "string") {
+            return val[1];
+        }
+        const names = val
+            .map((item) => {
+                if (item && typeof item === "object") {
+                    return item.display_name || item.displayName || item.name || null;
+                }
+                return item !== undefined && item !== null ? String(item) : null;
+            })
+            .filter(Boolean);
+        return names.length ? names.join(", ") : null;
+    }
+    if (typeof val === "object") {
+        if ("display_name" in val && val.display_name !== undefined && val.display_name !== null) {
+            return String(val.display_name);
+        }
+        if ("displayName" in val && val.displayName !== undefined && val.displayName !== null) {
+            return String(val.displayName);
+        }
+        if (val.data && typeof val.data === "object") {
+            const inner = val.data.display_name ?? val.data.name;
+            if (inner !== undefined && inner !== null) {
+                return String(inner);
+            }
+        }
+        if ("name" in val && val.name !== undefined && val.name !== null) {
+            return typeof val.name === "object" ? String(val.name.display_name || val.name) : String(val.name);
+        }
+        if ("label" in val && val.label !== undefined && val.label !== null) {
+            return String(val.label);
+        }
     }
     return String(val);
 }
