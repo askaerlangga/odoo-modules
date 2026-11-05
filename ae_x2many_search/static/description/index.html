@@ -1,278 +1,282 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"/>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
-    <style>
-        .oe_container { padding: 40px 15px; }
-        .oe_dark { background-color: #f8f9fa; }
-        .oe_slogan { font-weight: 300; margin-bottom: 20px; }
-        .oe_picture { display: block; margin: 0 auto; }
-        .oe_screenshot img, img.oe_screenshot {
-            border-radius: 8px;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-            border: 1px solid #dee2e6;
-            max-width: 100%;
-            height: auto;
-        }
-    </style>
+  <meta charset="utf-8">
+  <title>X2many Search Bar - Client-Side Search &amp; Group By for Odoo 19</title>
 </head>
 <body>
+<div class="container py-4" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #212529;">
 
-<!-- ======================================================
-     HERO
-     ====================================================== -->
-<section class="oe_container">
-    <div class="oe_row oe_spaced text-center">
-        <h2 class="oe_slogan fw-bold" style="color:#017e84;">X2many Search Bar</h2>
-        <h3 class="oe_slogan">
-            Instantly search, filter and group records inside any
-            <code>one2many</code> or <code>many2many</code> list — with centered search bar and zero server round-trips.
-        </h3>
-        <div class="oe_demo oe_picture oe_screenshot mt-4">
-            <img src="images/main_screenshot.png" alt="X2many Search Bar overview" class="oe_screenshot"/>
-        </div>
+  <!-- Hero Header Section -->
+  <section class="p-5 text-center rounded-4 shadow-sm mb-5" style="background: linear-gradient(135deg, #017E84 0%, #015054 100%); color: #FFFFFF;">
+    <div class="d-inline-flex align-items-center gap-2 px-3 py-1 mb-3 rounded-pill" style="background-color: #016267; border: 1px solid #149EA5; font-size: 13px; font-weight: 600;">
+      <span style="color: #00D084;">●</span> Odoo 19.0 Community &amp; Enterprise
     </div>
-</section>
-
-<!-- ======================================================
-     FEATURES OVERVIEW
-     ====================================================== -->
-<section class="oe_container oe_dark">
-    <div class="container">
-        <div class="text-center mb-5">
-            <h2 class="oe_slogan fw-bold" style="color:#017e84;">Everything you need, right inside the list</h2>
-            <h3 class="oe_slogan text-muted">Client-side — zero server round-trips</h3>
-        </div>
-
-        <div class="row g-4">
-            <div class="col-md-4 text-center">
-                <div class="p-3">
-                    <span class="fa fa-search fa-3x" style="color:#017e84;"></span>
-                    <h4 class="mt-3"><strong>Smart Search</strong></h4>
-                    <p class="text-secondary text-justify">
-                        Type a keyword and pick a field from the dropdown to scope the search.
-                        Matched records appear instantly with a facet chip in the centered search bar.
-                        Search across <em>Char</em>, <em>Text</em>, <em>Many2one</em>, numbers and more.
-                    </p>
-                </div>
-            </div>
-
-            <div class="col-md-4 text-center">
-                <div class="p-3">
-                    <span class="fa fa-layer-group fa-3x" style="color:#017e84;"></span>
-                    <h4 class="mt-3"><strong>Client-side Group By</strong></h4>
-                    <p class="text-secondary text-justify">
-                        Click the caret button next to the search bar to open the Group By menu.
-                        Records are sorted and grouped by visible fields with clean display names
-                        and collapsed accordions. Click any header to expand or collapse.
-                    </p>
-                </div>
-            </div>
-
-            <div class="col-md-4 text-center">
-                <div class="p-3">
-                    <span class="fa fa-sliders fa-3x" style="color:#017e84;"></span>
-                    <h4 class="mt-3"><strong>Auto-Sync Columns</strong></h4>
-                    <p class="text-secondary text-justify">
-                        Automatically discovers all visible columns in the list view if <code>search_fields</code>
-                        is omitted. Dynamically syncs search suggestions and Group By fields in real time
-                        as optional columns are toggled.
-                    </p>
-                </div>
-            </div>
-        </div>
+    <h1 class="display-5 fw-bold mb-3" style="letter-spacing: -0.5px;">X2many Search Bar</h1>
+    <p class="lead mx-auto mb-4" style="max-width: 760px; color: #E6FFFA; font-size: 18px; line-height: 1.6;">
+      Instantly search, filter, and group records inside any <code>one2many</code> or <code>many2many</code> list view with a centered search bar and zero server round-trips.
+    </p>
+    <div class="d-flex justify-content-center flex-wrap gap-2 pt-2">
+      <span class="badge py-2 px-3 rounded-pill" style="background-color: #FFFFFF; color: #017E84; font-size: 13px; font-weight: 600;">Client-Side Filtering</span>
+      <span class="badge py-2 px-3 rounded-pill" style="background-color: #FFFFFF; color: #017E84; font-size: 13px; font-weight: 600;">Zero Server Overhead</span>
+      <span class="badge py-2 px-3 rounded-pill" style="background-color: #FFFFFF; color: #017E84; font-size: 13px; font-weight: 600;">Dynamic Group By</span>
+      <span class="badge py-2 px-3 rounded-pill" style="background-color: #FFFFFF; color: #017E84; font-size: 13px; font-weight: 600;">Section &amp; Note Ready</span>
+      <span class="badge py-2 px-3 rounded-pill" style="background-color: #714B67; color: #FFFFFF; font-size: 13px; font-weight: 600;">LGPL-3 Open Source</span>
     </div>
-</section>
+  </section>
 
-<!-- ======================================================
-     SEARCH BAR SCREENSHOT
-     ====================================================== -->
-<section class="oe_container">
-    <div class="container">
-        <div class="row align-items-center g-4">
-            <div class="col-lg-6">
-                <h2 class="oe_slogan fw-bold" style="color:#017e84; text-align:left;">
-                    Centered Odoo-style search panel
-                </h2>
-                <h4 class="text-muted mb-3">
-                    Balanced layout &amp; familiar UX
-                </h4>
-                <p class="text-secondary text-justify">
-                    The search bar is centered directly in the control panel with responsive width.
-                    Typing a query opens a <em>Search by</em> dropdown listing all searchable fields.
-                    Select a field (or press <kbd>Enter</kbd>) to commit the search as a coloured
-                    facet chip. Use <kbd>↓</kbd> / <kbd>↑</kbd> to navigate suggestions and
-                    <kbd>Escape</kbd> to close.
-                </p>
-                <p class="text-secondary text-justify">
-                    Only records already loaded on the current page are filtered —
-                    making the experience instant and completely offline.
-                </p>
-            </div>
-            <div class="col-lg-6 text-center">
-                <img class="oe_screenshot img-fluid"
-                     src="images/search_bar.png"
-                     alt="Search bar with facet chips"/>
-            </div>
-        </div>
+  <!-- Key Value Highlights -->
+  <section class="mb-5">
+    <div class="text-center mb-4">
+      <h2 class="fw-bold" style="color: #1E293B;">Why Choose X2many Search Bar?</h2>
+      <p class="text-muted" style="font-size: 16px;">Supercharge line-item workflows with fast client-side searching and grouping right inside notebook tabs.</p>
     </div>
-</section>
 
-<!-- ======================================================
-     GROUP BY SCREENSHOT
-     ====================================================== -->
-<section class="oe_container oe_dark">
-    <div class="container">
-        <div class="row align-items-center g-4">
-            <div class="col-lg-6 text-center order-lg-1 order-2">
-                <img class="oe_screenshot img-fluid"
-                     src="images/group_by.png"
-                     alt="Group By menu and collapsed groups"/>
-            </div>
-            <div class="col-lg-6 order-lg-2 order-1">
-                <h2 class="oe_slogan fw-bold" style="color:#017e84; text-align:left;">
-                    Client-side Group By
-                </h2>
-                <h4 class="text-muted mb-3">
-                    Collapse, expand and switch groups on the fly
-                </h4>
-                <p class="text-secondary text-justify">
-                    Opening the Group By menu (▾ caret button) lists all configured fields.
-                    Selecting one immediately sorts and groups the visible records.
-                    Each group header shows the group label and a record count badge.
-                    Groups start <strong>collapsed</strong> so the view stays clean;
-                    click any header to expand or collapse it individually.
-                </p>
-                <p class="text-secondary text-justify">
-                    Combine search and group by simultaneously — the widget applies
-                    the filter first, then groups the matching results.
-                </p>
-            </div>
+    <div class="row g-4">
+      <div class="col-md-6 col-lg-4">
+        <div class="p-4 rounded-3 h-100 shadow-sm border" style="background-color: #FFFFFF; border-color: #E2E8F0;">
+          <div class="d-inline-flex p-3 rounded-3 mb-3" style="background-color: #E6FFFA; color: #017E84; font-size: 22px; font-weight: bold;">
+            ⚡
+          </div>
+          <h4 class="fw-bold mb-2" style="font-size: 18px; color: #0F172A;">Instant &amp; Zero Latency</h4>
+          <p class="text-muted mb-0" style="font-size: 14px; line-height: 1.6;">
+            Filtering happens 100% on the client browser. No RPC calls, no database reloads, and zero lag even when filtering through dozens of order lines.
+          </p>
         </div>
+      </div>
+
+      <div class="col-md-6 col-lg-4">
+        <div class="p-4 rounded-3 h-100 shadow-sm border" style="background-color: #FFFFFF; border-color: #E2E8F0;">
+          <div class="d-inline-flex p-3 rounded-3 mb-3" style="background-color: #E0F2FE; color: #0284C7; font-size: 22px; font-weight: bold;">
+            🔍
+          </div>
+          <h4 class="fw-bold mb-2" style="font-size: 18px; color: #0F172A;">Smart Substring Search</h4>
+          <p class="text-muted mb-0" style="font-size: 14px; line-height: 1.6;">
+            Type a keyword to search across Char, Text, Numbers, and relational Many2one fields with clean colored facet chips.
+          </p>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-lg-4">
+        <div class="p-4 rounded-3 h-100 shadow-sm border" style="background-color: #FFFFFF; border-color: #E2E8F0;">
+          <div class="d-inline-flex p-3 rounded-3 mb-3" style="background-color: #EDE9FE; color: #7C3AED; font-size: 22px; font-weight: bold;">
+            📂
+          </div>
+          <h4 class="fw-bold mb-2" style="font-size: 18px; color: #0F172A;">Client-Side Group By</h4>
+          <p class="text-muted mb-0" style="font-size: 14px; line-height: 1.6;">
+            Group lines by any column with collapsible accordions and record count badges. Combine search and grouping simultaneously with ease.
+          </p>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-lg-4">
+        <div class="p-4 rounded-3 h-100 shadow-sm border" style="background-color: #FFFFFF; border-color: #E2E8F0;">
+          <div class="d-inline-flex p-3 rounded-3 mb-3" style="background-color: #DCFCE7; color: #16A34A; font-size: 22px; font-weight: bold;">
+            🔄
+          </div>
+          <h4 class="fw-bold mb-2" style="font-size: 18px; color: #0F172A;">Auto-Sync Columns</h4>
+          <p class="text-muted mb-0" style="font-size: 14px; line-height: 1.6;">
+            Automatically detects all visible columns when <code>search_fields</code> is omitted, dynamically updating search suggestions as optional columns are toggled.
+          </p>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-lg-4">
+        <div class="p-4 rounded-3 h-100 shadow-sm border" style="background-color: #FFFFFF; border-color: #E2E8F0;">
+          <div class="d-inline-flex p-3 rounded-3 mb-3" style="background-color: #FEF3C7; color: #D97706; font-size: 22px; font-weight: bold;">
+            📝
+          </div>
+          <h4 class="fw-bold mb-2" style="font-size: 18px; color: #0F172A;">Section &amp; Note Support</h4>
+          <p class="text-muted mb-0" style="font-size: 14px; line-height: 1.6;">
+            Full compatibility with Sale Orders, Purchase Orders, and Invoice lines. Add products, sections, and notes naturally without breaking UX.
+          </p>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-lg-4">
+        <div class="p-4 rounded-3 h-100 shadow-sm border" style="background-color: #FFFFFF; border-color: #E2E8F0;">
+          <div class="d-inline-flex p-3 rounded-3 mb-3" style="background-color: #F1F5F9; color: #475569; font-size: 22px; font-weight: bold;">
+            ⌨️
+          </div>
+          <h4 class="fw-bold mb-2" style="font-size: 18px; color: #0F172A;">Keyboard Friendly</h4>
+          <p class="text-muted mb-0" style="font-size: 14px; line-height: 1.6;">
+            Speed up power users with keyboard navigation: <kbd>Enter</kbd> commits search, arrow keys navigate suggestions, and <kbd>Esc</kbd> clears dropdowns.
+          </p>
+        </div>
+      </div>
     </div>
-</section>
+  </section>
 
-<!-- ======================================================
-     SECTION & NOTE SCREENSHOT
-     ====================================================== -->
-<section class="oe_container">
-    <div class="container">
-        <div class="row align-items-center g-4">
-            <div class="col-lg-6">
-                <h2 class="oe_slogan fw-bold" style="color:#017e84; text-align:left;">
-                    Section &amp; Note support
-                </h2>
-                <h4 class="text-muted mb-3">
-                    Works on Purchase Orders, Sales Orders, Invoices and more
-                </h4>
-                <p class="text-secondary text-justify">
-                    When the <strong>Accounting</strong> or standard line-item modules are installed,
-                    the widget automatically inherits full <em>Section &amp; Note</em> editing
-                    capabilities — no extra configuration or separate bridge module required.
-                    Add a product, section, or note exactly as you would with the default widget.
-                </p>
-                <p class="text-secondary text-justify">
-                    The upgrade happens transparently via the fields registry at runtime,
-                    keeping <code>ae_x2many_search</code> free of any hard dependency on
-                    <code>account</code> or <code>purchase</code>.
-                </p>
-            </div>
-            <div class="col-lg-6 text-center">
-                <img class="oe_screenshot img-fluid"
-                     src="images/section_note.png"
-                     alt="Section and note support on order lines"/>
-            </div>
-        </div>
+  <!-- Visual Feature Tour Section -->
+  <section class="mb-5">
+    <div class="text-center mb-5">
+      <h2 class="fw-bold" style="color: #1E293B;">Visual Walkthrough &amp; Features</h2>
+      <p class="text-muted" style="font-size: 16px;">Designed to feel native to Odoo 19 with clean aesthetics and familiar interaction patterns.</p>
     </div>
-</section>
 
-<!-- ======================================================
-     USAGE
-     ====================================================== -->
-<section class="oe_container oe_dark">
-    <div class="container">
-        <div class="text-center mb-4">
-            <h2 class="oe_slogan fw-bold" style="color:#017e84;">Quick Setup</h2>
-            <h3 class="oe_slogan text-muted">Add the widget to any one2many or many2many field</h3>
+    <!-- Feature 1: Main Overview -->
+    <div class="row align-items-center mb-5 p-4 rounded-3 border" style="background-color: #FFFFFF; border-color: #E2E8F0;">
+      <div class="col-lg-6 mb-4 mb-lg-0">
+        <div class="d-inline-block px-3 py-1 rounded-pill mb-2" style="background-color: #F1F5F9; color: #475569; font-size: 12px; font-weight: bold;">
+          STEP 1
         </div>
-
-        <div class="col-lg-10 mx-auto">
-            <p class="text-center text-secondary">
-                Add <code>widget="x2many_search"</code> to any
-                <code>one2many</code> or <code>many2many</code> field in your view XML
-                and list the fields to search/group via the <code>search_fields</code> option:
-            </p>
-
-            <div class="mx-auto my-3 p-3 bg-white border border-2 rounded font-monospace"
-                 style="border-left: 5px solid #017e84 !important; font-size: 0.9rem;">
-&lt;field name="order_line"
-       widget="x2many_search"
-       options="{'search_fields': ['name', 'product_qty', 'price_unit']}"/&gt;
-            </div>
-
-            <div class="row mt-4 g-4">
-                <div class="col-md-6">
-                    <h5><i class="fa fa-cog me-2" style="color:#017e84;"></i>Options</h5>
-                    <ul class="text-secondary">
-                        <li>
-                            <strong><code>search_fields</code></strong> <em>(list or string, optional)</em> —
-                            field names to search and group by. Matched case-insensitively as substrings.
-                            For <code>many2one</code> and relational fields the display name is used.
-                            If omitted or empty, all visible columns in the list view are used automatically
-                            and dynamically synchronize as optional columns are toggled.
-                        </li>
-                    </ul>
-                </div>
-                <div class="col-md-6">
-                    <h5><i class="fa fa-keyboard me-2" style="color:#017e84;"></i>Keyboard Shortcuts</h5>
-                    <ul class="text-secondary">
-                        <li><kbd>Enter</kbd> — commit search (auto-selects first field)</li>
-                        <li><kbd>↓</kbd> / <kbd>↑</kbd> — navigate field suggestions</li>
-                        <li><kbd>Escape</kbd> — close dropdown</li>
-                        <li><kbd>Backspace</kbd> — remove last facet (empty input)</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
+        <h3 class="fw-bold mb-3" style="color: #0F172A;">Centered Search Panel</h3>
+        <p class="text-muted" style="font-size: 15px; line-height: 1.6;">
+          A dedicated Odoo-style search bar sits comfortably centered above the list view control panel, preserving standard pagination and button layouts.
+        </p>
+        <ul class="text-muted ps-3 mb-0" style="font-size: 14px; line-height: 1.8;">
+          <li>Seamless placement right above line-item notebooks.</li>
+          <li>Responsive width adapting gracefully from small screens to desktop monitors.</li>
+          <li>Works with both <code>one2many</code> and <code>many2many</code> sub-views.</li>
+        </ul>
+      </div>
+      <div class="col-lg-6 text-center">
+        <img src="images/main_screenshot.png" class="img-fluid rounded-3 shadow-sm border" alt="Centered Search Panel Overview" style="max-height: 380px;">
+      </div>
     </div>
-</section>
 
-<!-- ======================================================
-     NOTES
-     ====================================================== -->
-<section class="oe_container">
-    <div class="container">
-        <h2 class="oe_slogan fw-bold text-center" style="color:#017e84;">Notes &amp; Compatibility</h2>
-        <div class="col-lg-10 mx-auto mt-4">
-            <ul class="text-secondary" style="line-height:2;">
-                <li>
-                    All filtering and grouping is <strong>client-side only</strong> — only records
-                    loaded on the current page are affected (default page size: 80 records).
-                </li>
-                <li>
-                    Supports both <code>one2many</code> and <code>many2many</code> field types.
-                </li>
-                <li>
-                    All standard widget options (<code>editable</code>, <code>create</code>,
-                    <code>delete</code>, <code>no_open</code>, etc.) continue to work alongside
-                    the search options.
-                </li>
-                <li>
-                    <strong>Section &amp; Note</strong> editing requires the <em>Description</em>
-                    column to be visible. This is standard Odoo behaviour.
-                </li>
-                <li>
-                    <strong>Compatible with Odoo 19 Community and Enterprise.</strong>
-                </li>
-            </ul>
+    <!-- Feature 2: Search Dropdown & Facets -->
+    <div class="row align-items-center mb-5 p-4 rounded-3 border flex-lg-row-reverse" style="background-color: #FFFFFF; border-color: #E2E8F0;">
+      <div class="col-lg-6 mb-4 mb-lg-0">
+        <div class="d-inline-block px-3 py-1 rounded-pill mb-2" style="background-color: #F1F5F9; color: #475569; font-size: 12px; font-weight: bold;">
+          STEP 2
         </div>
+        <h3 class="fw-bold mb-3" style="color: #0F172A;">Interactive Search by Field</h3>
+        <p class="text-muted" style="font-size: 15px; line-height: 1.6;">
+          Typing a query instantly opens a scoped search dropdown. Choose a target field to commit a color-coded facet chip, or hit Enter to commit immediately.
+        </p>
+        <ul class="text-muted ps-3 mb-0" style="font-size: 14px; line-height: 1.8;">
+          <li>Search across product names, descriptions, barcodes, and quantities.</li>
+          <li>Removable chips with one-click clear or backspace key.</li>
+          <li>Compound search: add multiple facet chips to refine filters.</li>
+        </ul>
+      </div>
+      <div class="col-lg-6 text-center">
+        <img src="images/search_bar.png" class="img-fluid rounded-3 shadow-sm border" alt="Search by Field Dropdown" style="max-height: 380px;">
+      </div>
     </div>
-</section>
 
-<section class="oe_container oe_separator"></section>
+    <!-- Feature 3: Client-side Group By -->
+    <div class="row align-items-center mb-5 p-4 rounded-3 border" style="background-color: #FFFFFF; border-color: #E2E8F0;">
+      <div class="col-lg-6 mb-4 mb-lg-0">
+        <div class="d-inline-block px-3 py-1 rounded-pill mb-2" style="background-color: #F1F5F9; color: #475569; font-size: 12px; font-weight: bold;">
+          STEP 3
+        </div>
+        <h3 class="fw-bold mb-3" style="color: #0F172A;">Dynamic Group By with Accordion</h3>
+        <p class="text-muted" style="font-size: 15px; line-height: 1.6;">
+          Click the caret menu next to the search bar to organize lines into clean grouped sections. Groups start collapsed for maximum readability.
+        </p>
+        <ul class="text-muted ps-3 mb-0" style="font-size: 14px; line-height: 1.8;">
+          <li>Click any group header to expand or collapse items dynamically.</li>
+          <li>Live record count pill indicator next to each group title.</li>
+          <li>Combines seamlessly with active search filters.</li>
+        </ul>
+      </div>
+      <div class="col-lg-6 text-center">
+        <img src="images/group_by.png" class="img-fluid rounded-3 shadow-sm border" alt="Client-Side Group By Menu" style="max-height: 380px;">
+      </div>
+    </div>
 
+    <!-- Feature 4: Section & Note Support -->
+    <div class="row align-items-center p-4 rounded-3 border flex-lg-row-reverse" style="background-color: #FFFFFF; border-color: #E2E8F0;">
+      <div class="col-lg-6 mb-4 mb-lg-0">
+        <div class="d-inline-block px-3 py-1 rounded-pill mb-2" style="background-color: #F1F5F9; color: #475569; font-size: 12px; font-weight: bold;">
+          STEP 4
+        </div>
+        <h3 class="fw-bold mb-3" style="color: #0F172A;">Seamless Section &amp; Note Handling</h3>
+        <p class="text-muted" style="font-size: 15px; line-height: 1.6;">
+          When used on Accounting Invoices, Purchase Orders, or Sales Orders, the widget preserves standard Section and Note rows without disruption.
+        </p>
+        <ul class="text-muted ps-3 mb-0" style="font-size: 14px; line-height: 1.8;">
+          <li>Zero hard dependencies on <code>account</code> or <code>purchase</code> modules.</li>
+          <li>Preserves native inline editing, drag-and-drop handles, and row styling.</li>
+          <li>Gracefully switches between standard and section-note widgets at runtime.</li>
+        </ul>
+      </div>
+      <div class="col-lg-6 text-center">
+        <img src="images/section_note.png" class="img-fluid rounded-3 shadow-sm border" alt="Section and Note Support" style="max-height: 380px;">
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick Setup & Usage Guide -->
+  <section class="mb-5 p-4 rounded-3 border" style="background-color: #FFFFFF; border-color: #E2E8F0;">
+    <div class="d-inline-block px-3 py-1 rounded-pill mb-2" style="background-color: #E6FFFA; color: #017E84; font-size: 12px; font-weight: bold;">
+      DEVELOPER QUICK SETUP
+    </div>
+    <h3 class="fw-bold mb-3" style="color: #0F172A;">How to Use in Views</h3>
+    <p class="text-muted mb-3" style="font-size: 15px;">
+      Simply assign <code>widget="x2many_search"</code> to any <code>one2many</code> or <code>many2many</code> field in your XML architecture:
+    </p>
+
+    <div class="p-3 mb-4 rounded-3" style="background-color: #0F172A; color: #F8FAFC; font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 14px; overflow-x: auto;">
+      &lt;field name="order_line"<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;widget="x2many_search"<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;options="{'search_fields': ['name', 'product_qty', 'price_unit']}"/&gt;
+    </div>
+
+    <div class="row g-4 pt-2">
+      <div class="col-md-6">
+        <h5 class="fw-bold" style="color: #0F172A; font-size: 16px;">⚙️ Configuration Options</h5>
+        <p class="text-muted mb-0" style="font-size: 14px; line-height: 1.6;">
+          <code>search_fields</code>: List of field names to enable for searching and grouping. If omitted, all visible columns are auto-discovered and kept in sync dynamically as optional columns are toggled!
+        </p>
+      </div>
+      <div class="col-md-6">
+        <h5 class="fw-bold" style="color: #0F172A; font-size: 16px;">⌨️ Keyboard Shortcuts</h5>
+        <ul class="text-muted ps-3 mb-0" style="font-size: 14px; line-height: 1.8;">
+          <li><kbd>Enter</kbd> — Commit search filter with first matched field.</li>
+          <li><kbd>&darr;</kbd> / <kbd>&uarr;</kbd> — Navigate through field suggestions.</li>
+          <li><kbd>Esc</kbd> — Dismiss dropdown menu.</li>
+          <li><kbd>Backspace</kbd> — Remove last facet chip when input is empty.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Technical Specifications & Compatibility -->
+  <section class="mb-5 p-4 rounded-3" style="background-color: #F8FAFC; border: 1px solid #E2E8F0;">
+    <h3 class="fw-bold mb-4" style="color: #1E293B;">Technical Specifications</h3>
+    <div class="row g-3">
+      <div class="col-sm-6 col-md-3">
+        <div class="p-3 bg-white rounded border">
+          <small class="text-muted d-block">Target Odoo Version</small>
+          <strong style="color: #0F172A;">Odoo 19.0</strong>
+        </div>
+      </div>
+      <div class="col-sm-6 col-md-3">
+        <div class="p-3 bg-white rounded border">
+          <small class="text-muted d-block">Editions Supported</small>
+          <strong style="color: #0F172A;">Community &amp; Enterprise</strong>
+        </div>
+      </div>
+      <div class="col-sm-6 col-md-3">
+        <div class="p-3 bg-white rounded border">
+          <small class="text-muted d-block">License</small>
+          <strong style="color: #0F172A;">LGPL-3 (Open Source)</strong>
+        </div>
+      </div>
+      <div class="col-sm-6 col-md-3">
+        <div class="p-3 bg-white rounded border">
+          <small class="text-muted d-block">Dependencies</small>
+          <strong style="color: #0F172A;">web</strong>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Publisher & Support Footer -->
+  <footer class="p-4 rounded-3 text-center border" style="background-color: #FFFFFF; border-color: #E2E8F0;">
+    <h4 class="fw-bold mb-2" style="color: #0F172A;">Developed by Aska Erlangga</h4>
+    <p class="text-muted mb-3" style="font-size: 14px;">
+      Open Source Odoo Solutions &bull; Built with clean architecture and modern Odoo standards.
+    </p>
+    <div class="d-flex justify-content-center gap-3">
+      <a href="https://www.askaerlangga.my.id" target="_blank" class="btn px-4 py-2 rounded-pill fw-semibold" style="background-color: #017E84; color: #FFFFFF; text-decoration: none;">Visit Website</a>
+      <a href="https://github.com/askaerlangga/odoo-modules" target="_blank" class="btn px-4 py-2 rounded-pill fw-semibold" style="background-color: #0F172A; color: #FFFFFF; text-decoration: none;">GitHub Repository</a>
+    </div>
+  </footer>
+
+</div>
 </body>
 </html>
