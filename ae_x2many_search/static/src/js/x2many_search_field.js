@@ -1,16 +1,81 @@
 import { _t } from "@web/core/l10n/translation";
 import { registry } from "@web/core/registry";
+import { evaluateBooleanExpr } from "@web/core/py_js/py";
 import { X2ManyField, x2ManyField } from "@web/views/fields/x2many/x2many_field";
 import { ListRenderer } from "@web/views/list/list_renderer";
-import { useState, useRef, useEffect, onWillUpdateProps, markRaw } from "@odoo/owl";
+import { useState, useRef, useEffect, onWillUpdateProps, onWillRender, markRaw } from "@odoo/owl";
+
+export function isColumnInvisible(col, evalContext) {
+    if (col.column_invisible === "True" || col.column_invisible === "1" || col.column_invisible === true) {
+        return true;
+    }
+    if (col.invisible === "True" || col.invisible === "1" || col.invisible === true) {
+        return true;
+    }
+    if (col.column_invisible && evalContext) {
+        try {
+            return evaluateBooleanExpr(col.column_invisible, evalContext);
+        } catch {
+            // ignore eval error
+        }
+    }
+    if (col.invisible && evalContext) {
+        try {
+            return evaluateBooleanExpr(col.invisible, evalContext);
+        } catch {
+            // ignore eval error
+        }
+    }
+    return false;
+}
 
 export function getFieldStringValue(record, fieldName) {
+    if (!record || !record.data) {
+        return null;
+    }
     const val = record.data[fieldName];
     if (val === undefined || val === null || val === false) {
         return null;
     }
+    if (val && typeof val === "object" && Array.isArray(val.records)) {
+        const names = val.records
+            .map((r) => r.data?.display_name || r.data?.name || getFieldStringValue(r, "display_name"))
+            .filter(Boolean);
+        return names.length ? names.join(", ") : null;
+    }
     if (Array.isArray(val)) {
-        return String(val[1] ?? "");
+        if (val.length === 2 && typeof val[0] === "number" && typeof val[1] === "string") {
+            return val[1];
+        }
+        const names = val
+            .map((item) => {
+                if (item && typeof item === "object") {
+                    return item.display_name || item.displayName || item.name || null;
+                }
+                return item !== undefined && item !== null ? String(item) : null;
+            })
+            .filter(Boolean);
+        return names.length ? names.join(", ") : null;
+    }
+    if (typeof val === "object") {
+        if ("display_name" in val && val.display_name !== undefined && val.display_name !== null) {
+            return String(val.display_name);
+        }
+        if ("displayName" in val && val.displayName !== undefined && val.displayName !== null) {
+            return String(val.displayName);
+        }
+        if (val.data && typeof val.data === "object") {
+            const inner = val.data.display_name ?? val.data.name;
+            if (inner !== undefined && inner !== null) {
+                return String(inner);
+            }
+        }
+        if ("name" in val && val.name !== undefined && val.name !== null) {
+            return typeof val.name === "object" ? String(val.name.display_name || val.name) : String(val.name);
+        }
+        if ("label" in val && val.label !== undefined && val.label !== null) {
+            return String(val.label);
+        }
     }
     return String(val);
 }
@@ -41,6 +106,7 @@ function buildListProxy(list, records) {
 }
 
 const GROUP_PROPS = ["groupField?", "collapsedGroups?", "groupCounts?", "onToggleGroup?"];
+const SEARCH_RENDERER_PROPS = [...GROUP_PROPS, "onOptionalActiveFieldsChanged?"];
 
 const GroupMethods = {
     getGroupValue(record) {
@@ -62,13 +128,39 @@ const GroupMethods = {
 };
 
 export function makeSearchListRenderer(BaseListRenderer) {
-    class SearchListRenderer extends BaseListRenderer {}
+    class SearchListRenderer extends BaseListRenderer {
+        setup() {
+            super.setup();
+            onWillRender(() => {
+                if (this.props.onOptionalActiveFieldsChanged && this.optionalActiveFields) {
+                    const optionalFields = { ...this.optionalActiveFields };
+                    queueMicrotask(() => {
+                        this.props.onOptionalActiveFieldsChanged?.(optionalFields);
+                    });
+                }
+            });
+        }
+
+        async toggleOptionalField(fieldName) {
+            await super.toggleOptionalField(fieldName);
+            if (this.props.onOptionalActiveFieldsChanged && this.optionalActiveFields) {
+                this.props.onOptionalActiveFieldsChanged({ ...this.optionalActiveFields });
+            }
+        }
+
+        toggleOptionalFieldGroup(groupId) {
+            super.toggleOptionalFieldGroup(groupId);
+            if (this.props.onOptionalActiveFieldsChanged && this.optionalActiveFields) {
+                this.props.onOptionalActiveFieldsChanged({ ...this.optionalActiveFields });
+            }
+        }
+    }
     Object.assign(SearchListRenderer.prototype, GroupMethods);
     SearchListRenderer.template = BaseListRenderer.template;
     SearchListRenderer.recordRowTemplate = BaseListRenderer.recordRowTemplate;
     SearchListRenderer.groupRowTemplate = BaseListRenderer.groupRowTemplate;
     SearchListRenderer.rowsTemplate = "ae_x2many_search.ListRenderer.Rows";
-    SearchListRenderer.props = [...BaseListRenderer.props, ...GROUP_PROPS];
+    SearchListRenderer.props = [...BaseListRenderer.props, ...SEARCH_RENDERER_PROPS];
     return SearchListRenderer;
 }
 
@@ -107,10 +199,24 @@ export class X2ManySearchField extends X2ManyField {
             collapsedGroups: {},
         });
         this.facetOrder = useState({ order: [] });
+        this.optionalActiveState = useState({ fields: {} });
         this.searchWrapperRef = useRef("searchWrapper");
         this.groupWrapperRef = useRef("groupWrapper");
 
         this._invalidateFieldCaches();
+
+        this._onOptionalActiveFieldsChanged = (optionalFields) => {
+            let changed = false;
+            for (const [k, v] of Object.entries(optionalFields)) {
+                if (this.optionalActiveState.fields[k] !== v) {
+                    this.optionalActiveState.fields[k] = v;
+                    changed = true;
+                }
+            }
+            if (changed) {
+                this._invalidateFieldCaches();
+            }
+        };
 
         this._filterProxyKey = null;
         this._filterProxy = null;
@@ -128,7 +234,10 @@ export class X2ManySearchField extends X2ManyField {
         };
 
         onWillUpdateProps((nextProps) => {
-            if (nextProps.searchFields !== this.props.searchFields) {
+            if (
+                nextProps.searchFields !== this.props.searchFields ||
+                nextProps.record !== this.props.record
+            ) {
                 this._invalidateFieldCaches();
                 this._filterProxyKey = null;
                 this._groupProxyKey = null;
@@ -175,10 +284,45 @@ export class X2ManySearchField extends X2ManyField {
         if (this.props.searchFields && this.props.searchFields.length) {
             result = this.props.searchFields;
         } else {
-            const columns = (this.archInfo?.columns || []).filter(
-                (col) => (col.fieldName || col.name) && col.type === "field"
-            );
-            result = columns.map((col) => col.fieldName || col.name);
+            const parentRecord = this.props.record || this.list?._parent;
+            const parentData = parentRecord?.data || {};
+            const evalContext = {
+                ...(this.list?.evalContext || {}),
+                parent: {
+                    ...(parentRecord?.evalContext || {}),
+                    ...parentData,
+                },
+                ...parentData,
+            };
+            const optionalFields = this.optionalActiveState?.fields || {};
+            const columns = (this.archInfo?.columns || []).filter((col) => {
+                if (col.type !== "field") {
+                    return false;
+                }
+                if (col.widget === "handle") {
+                    return false;
+                }
+                if (isColumnInvisible(col, evalContext)) {
+                    return false;
+                }
+                const name = col.name || col.fieldName;
+                if (!name) {
+                    return false;
+                }
+                if (col.optional) {
+                    if (name in optionalFields) {
+                        return Boolean(optionalFields[name]);
+                    }
+                    return col.optional === "show";
+                }
+                return true;
+            });
+            result = columns.map((col) => col.name || col.fieldName);
+            if (!result.length && this.list?.fields) {
+                result = Object.keys(this.list.fields).filter(
+                    (f) => !["id", "__last_update", "create_date", "write_date", "create_uid", "write_uid"].includes(f)
+                );
+            }
         }
         this._searchFieldsCache = result;
         return result;
@@ -191,7 +335,7 @@ export class X2ManySearchField extends X2ManyField {
         const map = {};
         const columns = this.archInfo?.columns || [];
         for (const col of columns) {
-            const name = col.fieldName || col.name;
+            const name = col.name || col.fieldName;
             const label = col.label || col.string;
             if (name && label) {
                 map[name] = label;
@@ -271,6 +415,7 @@ export class X2ManySearchField extends X2ManyField {
 
     get rendererProps() {
         const props = super.rendererProps;
+        props.onOptionalActiveFieldsChanged = this._onOptionalActiveFieldsChanged;
         if (this.props.viewMode === "list") {
             props.aggregatedFields = this.props.aggregatedFields || [];
             props.hideComposition = this.props.hideComposition || false;
@@ -431,7 +576,17 @@ export const x2ManySearchField = {
     extractProps: (fieldInfo, dynamicInfo) => {
         const props = x2ManyField.extractProps(fieldInfo, dynamicInfo);
         const options = fieldInfo.options || {};
-        props.searchFields = options.search_fields || [];
+        const rawSearchFields = options.search_fields;
+        if (Array.isArray(rawSearchFields)) {
+            props.searchFields = rawSearchFields;
+        } else if (typeof rawSearchFields === "string" && rawSearchFields.trim()) {
+            props.searchFields = rawSearchFields
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean);
+        } else {
+            props.searchFields = [];
+        }
         props.aggregatedFields = fieldInfo.attrs?.aggregated_fields
             ? fieldInfo.attrs.aggregated_fields.split(/\s*,\s*/)
             : [];
@@ -451,7 +606,9 @@ function upgradeWithSectionAndNote() {
     if (_patched) {
         return true;
     }
-    const sectionAndNoteField = registry.category("fields").get("section_and_note_one2many", null);
+    const sectionAndNoteField =
+        registry.category("fields").get("product_label_section_and_note_field_o2m", null) ||
+        registry.category("fields").get("section_and_note_one2many", null);
     const BaseListRenderer = sectionAndNoteField?.component.components?.ListRenderer;
     if (!BaseListRenderer) {
         return false;
@@ -464,7 +621,11 @@ function upgradeWithSectionAndNote() {
 if (!upgradeWithSectionAndNote()) {
     const fieldsRegistry = registry.category("fields");
     const onFieldsUpdate = ({ detail: { operation, key } }) => {
-        if (operation === "add" && key === "section_and_note_one2many" && upgradeWithSectionAndNote()) {
+        if (
+            operation === "add" &&
+            (key === "section_and_note_one2many" || key === "product_label_section_and_note_field_o2m") &&
+            upgradeWithSectionAndNote()
+        ) {
             fieldsRegistry.removeEventListener("UPDATE", onFieldsUpdate);
         }
     };

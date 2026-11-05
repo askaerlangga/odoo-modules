@@ -1,7 +1,7 @@
 {
     "name": "X2many Search Bar",
     "summary": "Add a client-side search bar above one2many/many2many list views in notebooks",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.1.0",
     "author": "Aska Erlangga",
     "website": "https://www.askaerlangga.my.id",
     "category": "Technical",

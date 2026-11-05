@@ -29,7 +29,7 @@
         <h2 class="oe_slogan fw-bold" style="color:#017e84;">X2many Search Bar</h2>
         <h3 class="oe_slogan">
             Instantly search, filter and group records inside any
-            <code>one2many</code> or <code>many2many</code> list — no page reload needed.
+            <code>one2many</code> or <code>many2many</code> list — with centered search bar and zero server round-trips.
         </h3>
         <div class="oe_demo oe_picture oe_screenshot mt-4">
             <img src="images/main_screenshot.png" alt="X2many Search Bar overview" class="oe_screenshot"/>
@@ -54,7 +54,7 @@
                     <h4 class="mt-3"><strong>Smart Search</strong></h4>
                     <p class="text-secondary text-justify">
                         Type a keyword and pick a field from the dropdown to scope the search.
-                        Matched records appear instantly with a facet chip in the search bar.
+                        Matched records appear instantly with a facet chip in the centered search bar.
                         Search across <em>Char</em>, <em>Text</em>, <em>Many2one</em>, numbers and more.
                     </p>
                 </div>
@@ -66,20 +66,20 @@
                     <h4 class="mt-3"><strong>Client-side Group By</strong></h4>
                     <p class="text-secondary text-justify">
                         Click the caret button next to the search bar to open the Group By menu.
-                        Records are sorted, grouped and collapsed by default so you can focus
-                        on the groups that matter. Click any group header to expand or collapse it.
+                        Records are sorted and grouped by visible fields with clean display names
+                        and collapsed accordions. Click any header to expand or collapse.
                     </p>
                 </div>
             </div>
 
             <div class="col-md-4 text-center">
                 <div class="p-3">
-                    <span class="fa fa-tags fa-3x" style="color:#017e84;"></span>
-                    <h4 class="mt-3"><strong>Ordered Facets</strong></h4>
+                    <span class="fa fa-sliders fa-3x" style="color:#017e84;"></span>
+                    <h4 class="mt-3"><strong>Auto-Sync Columns</strong></h4>
                     <p class="text-secondary text-justify">
-                        Active filter and group-by chips appear as Odoo-style facets in
-                        insertion order. Remove any facet by clicking <strong>×</strong> or
-                        by pressing <kbd>Backspace</kbd> on an empty input.
+                        Automatically discovers all visible columns in the list view if <code>search_fields</code>
+                        is omitted. Dynamically syncs search suggestions and Group By fields in real time
+                        as optional columns are toggled.
                     </p>
                 </div>
             </div>
@@ -95,13 +95,13 @@
         <div class="row align-items-center g-4">
             <div class="col-lg-6">
                 <h2 class="oe_slogan fw-bold" style="color:#017e84; text-align:left;">
-                    Odoo-style search panel
+                    Centered Odoo-style search panel
                 </h2>
                 <h4 class="text-muted mb-3">
-                    Familiar UX — zero learning curve
+                    Balanced layout &amp; familiar UX
                 </h4>
                 <p class="text-secondary text-justify">
-                    The search bar looks and behaves exactly like the native Odoo search panel.
+                    The search bar is centered directly in the control panel with responsive width.
                     Typing a query opens a <em>Search by</em> dropdown listing all searchable fields.
                     Select a field (or press <kbd>Enter</kbd>) to commit the search as a coloured
                     facet chip. Use <kbd>↓</kbd> / <kbd>↑</kbd> to navigate suggestions and
@@ -218,10 +218,11 @@
                     <h5><i class="fa fa-cog me-2" style="color:#017e84;"></i>Options</h5>
                     <ul class="text-secondary">
                         <li>
-                            <strong><code>search_fields</code></strong> <em>(list, optional)</em> —
+                            <strong><code>search_fields</code></strong> <em>(list or string, optional)</em> —
                             field names to search and group by. Matched case-insensitively as substrings.
-                            For <code>many2one</code> fields the display name is used.
-                            If omitted, all visible columns are used automatically.
+                            For <code>many2one</code> and relational fields the display name is used.
+                            If omitted or empty, all visible columns in the list view are used automatically
+                            and dynamically synchronize as optional columns are toggled.
                         </li>
                     </ul>
                 </div>

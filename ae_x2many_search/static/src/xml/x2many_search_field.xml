@@ -87,6 +87,31 @@
         <div t-att-class="className + ' o_x2m_search_widget'">
             <div class="o_x2m_control_panel o_x2m_search_control_panel d-empty-none">
 
+                <t t-if="displayControlPanelButtons">
+                    <div class="o_cp_buttons gap-1" role="toolbar" aria-label="Control panel buttons" t-ref="buttons">
+                        <t t-foreach="controls" t-as="control" t-key="control_index">
+                            <button
+                                t-if="control.type === 'create' and !evalInvisible(control.invisible)"
+                                type="button"
+                                class="btn btn-secondary"
+                                t-att-class="control.class"
+                                t-on-click.stop.prevent="() => this.onAdd({ context: control.context })"
+                            >
+                                <t t-esc="control.string"/>
+                            </button>
+                            <ViewButton
+                                t-if="control.type === 'button' and !evalInvisible(control.invisible)"
+                                className="`${control.className}`"
+                                clickParams="control.clickParams"
+                                icon="control.icon"
+                                record="props.record.data[props.name]"
+                                string="control.string"
+                                title="control.title"
+                            />
+                        </t>
+                    </div>
+                </t>
+
                 <div class="o_x2m_searchview_wrap d-flex input-group" t-ref="searchWrapper">
 
                     <div class="o_x2m_searchview form-control d-flex align-items-center py-1 gap-1">
@@ -185,31 +210,6 @@
                         </div>
                     </div>
                 </div>
-
-                <t t-if="displayControlPanelButtons">
-                    <div class="o_cp_buttons gap-1" role="toolbar" aria-label="Control panel buttons" t-ref="buttons">
-                        <t t-foreach="controls" t-as="control" t-key="control_index">
-                            <button
-                                t-if="control.type === 'create' and !evalInvisible(control.invisible)"
-                                type="button"
-                                class="btn btn-secondary"
-                                t-att-class="control.class"
-                                t-on-click.stop.prevent="() => this.onAdd({ context: control.context })"
-                            >
-                                <t t-esc="control.string"/>
-                            </button>
-                            <ViewButton
-                                t-if="control.type === 'button' and !evalInvisible(control.invisible)"
-                                className="`${control.className}`"
-                                clickParams="control.clickParams"
-                                icon="control.icon"
-                                record="props.record.data[props.name]"
-                                string="control.string"
-                                title="control.title"
-                            />
-                        </t>
-                    </div>
-                </t>
 
                 <div t-if="props.record.data[props.name].count > props.record.data[props.name].limit" class="o_cp_pager" role="search">
                     <Pager t-props="pagerProps"/>
