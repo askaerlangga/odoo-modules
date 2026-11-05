@@ -12,6 +12,9 @@ export function isColumnInvisible(col, evalContext) {
     if (col.invisible === "True" || col.invisible === "1" || col.invisible === true) {
         return true;
     }
+    if (col.optional === "hide") {
+        return true;
+    }
     if (col.column_invisible && evalContext) {
         try {
             return evaluateBooleanExpr(col.column_invisible, evalContext);
@@ -203,7 +206,16 @@ export class X2ManySearchField extends X2ManyField {
         if (this.props.searchFields && this.props.searchFields.length) {
             result = this.props.searchFields;
         } else {
-            const evalContext = this.list?.evalContext || this.props.record?.evalContext;
+            const parentRecord = this.props.record || this.list?._parent;
+            const parentData = parentRecord?.data || {};
+            const evalContext = {
+                ...(this.list?.evalContext || {}),
+                parent: {
+                    ...(parentRecord?.evalContext || {}),
+                    ...parentData,
+                },
+                ...parentData,
+            };
             const columns = (this.archInfo?.columns || []).filter((col) => {
                 if (col.type !== "field") {
                     return false;
