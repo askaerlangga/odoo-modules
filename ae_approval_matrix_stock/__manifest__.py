@@ -14,6 +14,9 @@ This module bridges ``ae_approval_matrix`` with Odoo's Inventory module (``stock
     "author": "Aska Erlangga",
     "website": "https://www.askaerlangga.my.id",
     "license": "LGPL-3",
+    "images": [
+        "static/description/icon.png",
+    ],
     "depends": ["ae_approval_matrix", "stock"],
     "data": [
         "views/stock_quant_views.xml",
