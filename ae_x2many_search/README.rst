@@ -24,6 +24,10 @@ Features
   automatically inherits the section/note behaviour of Sales Orders and Invoices
   (no extra module or configuration required).
 
+.. image:: static/description/images/section_note.png
+   :alt: Section and note support with grouped rows
+   :width: 100%
+
 Usage
 -----
 
@@ -83,6 +87,7 @@ Notes
 - For **section/note** rows the column bound to ``name`` (usually *Description*)
   must be visible; if it is hidden via the optional-columns menu, section/note
   lines cannot be edited (this is standard Odoo behaviour).
+- Compatible with Odoo 19 Community and Enterprise.
 
 Technical
 ---------
