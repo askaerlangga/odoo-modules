@@ -8,6 +8,11 @@
     "license": "LGPL-3",
     "images": [
         "static/description/01_matrix_configuration.png",
+        "static/description/02_document_waiting_approval.png",
+        "static/description/03_approval_lines_tab.png",
+        "static/description/04_systray_dropdown.png",
+        "static/description/05_approval_wizard.png",
+        "static/description/06_field_exceptions.png",
     ],
     "depends": ["base", "mail", "hr", "bus", "web"],
     "data": [
