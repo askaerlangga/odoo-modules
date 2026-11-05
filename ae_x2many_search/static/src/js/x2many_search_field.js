@@ -3,16 +3,13 @@ import { registry } from "@web/core/registry";
 import { evaluateBooleanExpr } from "@web/core/py_js/py";
 import { X2ManyField, x2ManyField } from "@web/views/fields/x2many/x2many_field";
 import { ListRenderer } from "@web/views/list/list_renderer";
-import { useState, useRef, useEffect, onWillUpdateProps, markRaw } from "@odoo/owl";
+import { useState, useRef, useEffect, onWillUpdateProps, onWillRender, markRaw } from "@odoo/owl";
 
 export function isColumnInvisible(col, evalContext) {
     if (col.column_invisible === "True" || col.column_invisible === "1" || col.column_invisible === true) {
         return true;
     }
     if (col.invisible === "True" || col.invisible === "1" || col.invisible === true) {
-        return true;
-    }
-    if (col.optional === "hide") {
         return true;
     }
     if (col.column_invisible && evalContext) {
@@ -69,6 +66,7 @@ function buildListProxy(list, records) {
 }
 
 const GROUP_PROPS = ["groupField?", "collapsedGroups?", "groupCounts?", "onToggleGroup?"];
+const SEARCH_RENDERER_PROPS = [...GROUP_PROPS, "onOptionalActiveFieldsChanged?"];
 
 const GroupMethods = {
     getGroupValue(record) {
@@ -90,13 +88,39 @@ const GroupMethods = {
 };
 
 export function makeSearchListRenderer(BaseListRenderer) {
-    class SearchListRenderer extends BaseListRenderer {}
+    class SearchListRenderer extends BaseListRenderer {
+        setup() {
+            super.setup();
+            onWillRender(() => {
+                if (this.props.onOptionalActiveFieldsChanged && this.optionalActiveFields) {
+                    const optionalFields = { ...this.optionalActiveFields };
+                    queueMicrotask(() => {
+                        this.props.onOptionalActiveFieldsChanged?.(optionalFields);
+                    });
+                }
+            });
+        }
+
+        async toggleOptionalField(fieldName) {
+            await super.toggleOptionalField(fieldName);
+            if (this.props.onOptionalActiveFieldsChanged && this.optionalActiveFields) {
+                this.props.onOptionalActiveFieldsChanged({ ...this.optionalActiveFields });
+            }
+        }
+
+        toggleOptionalFieldGroup(groupId) {
+            super.toggleOptionalFieldGroup(groupId);
+            if (this.props.onOptionalActiveFieldsChanged && this.optionalActiveFields) {
+                this.props.onOptionalActiveFieldsChanged({ ...this.optionalActiveFields });
+            }
+        }
+    }
     Object.assign(SearchListRenderer.prototype, GroupMethods);
     SearchListRenderer.template = BaseListRenderer.template;
     SearchListRenderer.recordRowTemplate = BaseListRenderer.recordRowTemplate;
     SearchListRenderer.groupRowTemplate = BaseListRenderer.groupRowTemplate;
     SearchListRenderer.rowsTemplate = "ae_x2many_search.ListRenderer.Rows";
-    SearchListRenderer.props = [...BaseListRenderer.props, ...GROUP_PROPS];
+    SearchListRenderer.props = [...BaseListRenderer.props, ...SEARCH_RENDERER_PROPS];
     return SearchListRenderer;
 }
 
@@ -135,10 +159,24 @@ export class X2ManySearchField extends X2ManyField {
             collapsedGroups: {},
         });
         this.facetOrder = useState({ order: [] });
+        this.optionalActiveState = useState({ fields: {} });
         this.searchWrapperRef = useRef("searchWrapper");
         this.groupWrapperRef = useRef("groupWrapper");
 
         this._invalidateFieldCaches();
+
+        this._onOptionalActiveFieldsChanged = (optionalFields) => {
+            let changed = false;
+            for (const [k, v] of Object.entries(optionalFields)) {
+                if (this.optionalActiveState.fields[k] !== v) {
+                    this.optionalActiveState.fields[k] = v;
+                    changed = true;
+                }
+            }
+            if (changed) {
+                this._invalidateFieldCaches();
+            }
+        };
 
         this._filterProxyKey = null;
         this._filterProxy = null;
@@ -216,6 +254,7 @@ export class X2ManySearchField extends X2ManyField {
                 },
                 ...parentData,
             };
+            const optionalFields = this.optionalActiveState?.fields || {};
             const columns = (this.archInfo?.columns || []).filter((col) => {
                 if (col.type !== "field") {
                     return false;
@@ -227,7 +266,16 @@ export class X2ManySearchField extends X2ManyField {
                     return false;
                 }
                 const name = col.name || col.fieldName;
-                return Boolean(name);
+                if (!name) {
+                    return false;
+                }
+                if (col.optional) {
+                    if (name in optionalFields) {
+                        return Boolean(optionalFields[name]);
+                    }
+                    return col.optional === "show";
+                }
+                return true;
             });
             result = columns.map((col) => col.name || col.fieldName);
             if (!result.length && this.list?.fields) {
@@ -327,6 +375,7 @@ export class X2ManySearchField extends X2ManyField {
 
     get rendererProps() {
         const props = super.rendererProps;
+        props.onOptionalActiveFieldsChanged = this._onOptionalActiveFieldsChanged;
         if (this.props.viewMode === "list") {
             props.aggregatedFields = this.props.aggregatedFields || [];
             props.hideComposition = this.props.hideComposition || false;
@@ -517,7 +566,9 @@ function upgradeWithSectionAndNote() {
     if (_patched) {
         return true;
     }
-    const sectionAndNoteField = registry.category("fields").get("section_and_note_one2many", null);
+    const sectionAndNoteField =
+        registry.category("fields").get("product_label_section_and_note_field_o2m", null) ||
+        registry.category("fields").get("section_and_note_one2many", null);
     const BaseListRenderer = sectionAndNoteField?.component.components?.ListRenderer;
     if (!BaseListRenderer) {
         return false;
@@ -530,7 +581,11 @@ function upgradeWithSectionAndNote() {
 if (!upgradeWithSectionAndNote()) {
     const fieldsRegistry = registry.category("fields");
     const onFieldsUpdate = ({ detail: { operation, key } }) => {
-        if (operation === "add" && key === "section_and_note_one2many" && upgradeWithSectionAndNote()) {
+        if (
+            operation === "add" &&
+            (key === "section_and_note_one2many" || key === "product_label_section_and_note_field_o2m") &&
+            upgradeWithSectionAndNote()
+        ) {
             fieldsRegistry.removeEventListener("UPDATE", onFieldsUpdate);
         }
     };
