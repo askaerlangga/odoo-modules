@@ -5,6 +5,10 @@ X2many Search Bar
 Adds a client-side **search bar** and **group by** button above ``one2many`` / ``many2many``
 list views inside notebook pages.
 
+.. image:: static/description/images/main_screenshot.png
+   :alt: X2many Search Bar overview
+   :width: 100%
+
 Features
 --------
 
@@ -17,8 +21,12 @@ Features
 - Zero server round-trips — all filtering and grouping happen on already-loaded records.
 - Full compatibility with all standard ``one2many`` / ``many2many`` widget options.
 - **Section & Note support** — when the ``account`` module is installed, the widget
-  automatically inherits the section/note behaviour of Sales Orders and Invoices
+  automatically inherits the section/note behaviour of Purchase Orders, Sales Orders and Invoices
   (no extra module or configuration required).
+
+.. image:: static/description/images/section_note.png
+   :alt: Section and note support with grouped rows
+   :width: 100%
 
 Usage
 -----
@@ -27,7 +35,7 @@ Add ``widget="x2many_search"`` to any ``one2many`` or ``many2many`` field and sp
 the searchable/groupable fields via ``search_fields``::
 
     <field name="order_line" widget="x2many_search"
-           options="{'search_fields': ['product_id', 'name', 'qty_done']}"/>
+           options="{'search_fields': ['name', 'product_qty', 'price_unit']}"/>
 
 Options
 -------
@@ -40,6 +48,10 @@ Options
 Search Bar — Behaviour
 ----------------------
 
+.. image:: static/description/images/search_bar.png
+   :alt: Search bar with facet chips
+   :width: 100%
+
 1. Type a query → a dropdown appears listing available fields.
 2. Click a field (or press **Enter** to auto-select the first) → a filter facet
    ``[Field]  value  ×`` appears in the search bar and records are filtered.
@@ -50,6 +62,10 @@ Search Bar — Behaviour
 
 Group By — Behaviour
 --------------------
+
+.. image:: static/description/images/group_by.png
+   :alt: Group By menu and collapsed groups
+   :width: 100%
 
 1. Click the caret (**▾**) next to the search bar → the Group By menu opens.
 2. Click a field → records are sorted and grouped, and a group facet appears in
@@ -71,6 +87,7 @@ Notes
 - For **section/note** rows the column bound to ``name`` (usually *Description*)
   must be visible; if it is hidden via the optional-columns menu, section/note
   lines cannot be edited (this is standard Odoo behaviour).
+- Compatible with Odoo 19 Community and Enterprise.
 
 Technical
 ---------
