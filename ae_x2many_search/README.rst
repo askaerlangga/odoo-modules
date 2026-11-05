@@ -21,7 +21,7 @@ Features
 - Zero server round-trips — all filtering and grouping happen on already-loaded records.
 - Full compatibility with all standard ``one2many`` / ``many2many`` widget options.
 - **Section & Note support** — when the ``account`` module is installed, the widget
-  automatically inherits the section/note behaviour of Sales Orders and Invoices
+  automatically inherits the section/note behaviour of Purchase Orders, Sales Orders and Invoices
   (no extra module or configuration required).
 
 .. image:: static/description/images/section_note.png
@@ -35,7 +35,7 @@ Add ``widget="x2many_search"`` to any ``one2many`` or ``many2many`` field and sp
 the searchable/groupable fields via ``search_fields``::
 
     <field name="order_line" widget="x2many_search"
-           options="{'search_fields': ['product_id', 'name', 'qty_done']}"/>
+           options="{'search_fields': ['name', 'product_qty', 'price_unit']}"/>
 
 Options
 -------
