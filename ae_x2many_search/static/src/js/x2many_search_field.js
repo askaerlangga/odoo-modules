@@ -1,8 +1,33 @@
 import { _t } from "@web/core/l10n/translation";
 import { registry } from "@web/core/registry";
+import { evaluateBooleanExpr } from "@web/core/py_js/py";
 import { X2ManyField, x2ManyField } from "@web/views/fields/x2many/x2many_field";
 import { ListRenderer } from "@web/views/list/list_renderer";
 import { useState, useRef, useEffect, onWillUpdateProps, markRaw } from "@odoo/owl";
+
+export function isColumnInvisible(col, evalContext) {
+    if (col.column_invisible === "True" || col.column_invisible === "1" || col.column_invisible === true) {
+        return true;
+    }
+    if (col.invisible === "True" || col.invisible === "1" || col.invisible === true) {
+        return true;
+    }
+    if (col.column_invisible && evalContext) {
+        try {
+            return evaluateBooleanExpr(col.column_invisible, evalContext);
+        } catch {
+            // ignore eval error
+        }
+    }
+    if (col.invisible && evalContext) {
+        try {
+            return evaluateBooleanExpr(col.invisible, evalContext);
+        } catch {
+            // ignore eval error
+        }
+    }
+    return false;
+}
 
 export function getFieldStringValue(record, fieldName) {
     const val = record.data[fieldName];
@@ -128,7 +153,10 @@ export class X2ManySearchField extends X2ManyField {
         };
 
         onWillUpdateProps((nextProps) => {
-            if (nextProps.searchFields !== this.props.searchFields) {
+            if (
+                nextProps.searchFields !== this.props.searchFields ||
+                nextProps.record !== this.props.record
+            ) {
                 this._invalidateFieldCaches();
                 this._filterProxyKey = null;
                 this._groupProxyKey = null;
@@ -175,10 +203,26 @@ export class X2ManySearchField extends X2ManyField {
         if (this.props.searchFields && this.props.searchFields.length) {
             result = this.props.searchFields;
         } else {
-            const columns = (this.archInfo?.columns || []).filter(
-                (col) => (col.fieldName || col.name) && col.type === "field"
-            );
-            result = columns.map((col) => col.fieldName || col.name);
+            const evalContext = this.list?.evalContext || this.props.record?.evalContext;
+            const columns = (this.archInfo?.columns || []).filter((col) => {
+                if (col.type !== "field") {
+                    return false;
+                }
+                if (col.widget === "handle") {
+                    return false;
+                }
+                if (isColumnInvisible(col, evalContext)) {
+                    return false;
+                }
+                const name = col.name || col.fieldName;
+                return Boolean(name);
+            });
+            result = columns.map((col) => col.name || col.fieldName);
+            if (!result.length && this.list?.fields) {
+                result = Object.keys(this.list.fields).filter(
+                    (f) => !["id", "__last_update", "create_date", "write_date", "create_uid", "write_uid"].includes(f)
+                );
+            }
         }
         this._searchFieldsCache = result;
         return result;
@@ -191,7 +235,7 @@ export class X2ManySearchField extends X2ManyField {
         const map = {};
         const columns = this.archInfo?.columns || [];
         for (const col of columns) {
-            const name = col.fieldName || col.name;
+            const name = col.name || col.fieldName;
             const label = col.label || col.string;
             if (name && label) {
                 map[name] = label;
@@ -431,7 +475,17 @@ export const x2ManySearchField = {
     extractProps: (fieldInfo, dynamicInfo) => {
         const props = x2ManyField.extractProps(fieldInfo, dynamicInfo);
         const options = fieldInfo.options || {};
-        props.searchFields = options.search_fields || [];
+        const rawSearchFields = options.search_fields;
+        if (Array.isArray(rawSearchFields)) {
+            props.searchFields = rawSearchFields;
+        } else if (typeof rawSearchFields === "string" && rawSearchFields.trim()) {
+            props.searchFields = rawSearchFields
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean);
+        } else {
+            props.searchFields = [];
+        }
         props.aggregatedFields = fieldInfo.attrs?.aggregated_fields
             ? fieldInfo.attrs.aggregated_fields.split(/\s*,\s*/)
             : [];

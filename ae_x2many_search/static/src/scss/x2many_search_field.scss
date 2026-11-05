@@ -1,16 +1,51 @@
 .o_x2m_search_control_panel {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
     gap: 0.5rem;
     margin-bottom: 1.5rem !important;
 
+    .o_cp_buttons {
+        grid-column: 1;
+        justify-self: start;
+        flex-shrink: 0;
+    }
+
     .o_x2m_searchview_wrap {
-        flex: 1 1 200px;
-        min-width: 150px;
+        grid-column: 2;
+        justify-self: center;
+        width: 100%;
+        min-width: 180px;
         max-width: 500px;
         position: relative;
         z-index: 10;
+    }
+
+    .o_cp_pager {
+        grid-column: 3;
+        justify-self: end;
+        flex-shrink: 0;
+    }
+
+    @media (max-width: 767.98px) {
+        display: flex;
+        flex-wrap: wrap;
+
+        .o_cp_buttons {
+            order: 1;
+        }
+
+        .o_x2m_searchview_wrap {
+            order: 2;
+            width: 100%;
+            max-width: 100%;
+            margin: 0.25rem 0;
+        }
+
+        .o_cp_pager {
+            order: 3;
+            margin-left: auto;
+        }
     }
 
     .o_x2m_searchview {
@@ -107,15 +142,6 @@
                 }
             }
         }
-    }
-
-    .o_cp_buttons {
-        flex-shrink: 0;
-    }
-
-    .o_cp_pager {
-        flex-shrink: 0;
-        margin-left: auto;
     }
 }
 
