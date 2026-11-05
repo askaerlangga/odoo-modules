@@ -6,6 +6,9 @@
     "author": "Aska Erlangga",
     "website": "https://www.askaerlangga.my.id",
     "license": "LGPL-3",
+    "images": [
+        "static/description/01_matrix_configuration.png",
+    ],
     "depends": ["base", "mail", "hr", "bus", "web"],
     "data": [
         "security/approval_matrix_groups.xml",
