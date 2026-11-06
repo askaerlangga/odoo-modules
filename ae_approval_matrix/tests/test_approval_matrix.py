@@ -94,14 +94,14 @@ class TestApprovalMatrix(TransactionCase):
             "approver_ids": [
                 (0, 0, {
                     "sequence": 1,
-                    "approval_header": "Level 1 - User Review",
+                    "name": "Level 1 - User Review",
                     "approver_type": "users",
                     "user_ids": [(6, 0, [cls.user_approver_1.id])],
                     "require_all": True,
                 }),
                 (0, 0, {
                     "sequence": 2,
-                    "approval_header": "Level 2 - Dept Manager",
+                    "name": "Level 2 - Dept Manager",
                     "approver_type": "dept_manager",
                     "require_all": True,
                 }),
@@ -295,7 +295,7 @@ class TestApprovalMatrix(TransactionCase):
             "approver_ids": [
                 (0, 0, {
                     "sequence": 1,
-                    "approval_header": "Manager Approval",
+                    "name": "Manager Approval",
                     "approver_type": "users",
                     "user_ids": [(6, 0, [self.user_approver_1.id])],
                 }),
@@ -549,7 +549,7 @@ class TestApprovalMatrix(TransactionCase):
             "approver_ids": [
                 (0, 0, {
                     "sequence": 1,
-                    "approval_header": "Manager Approval",
+                    "name": "Manager Approval",
                     "approver_type": "users",
                     "user_ids": [(6, 0, [self.user_approver_1.id])],
                 }),
@@ -602,7 +602,7 @@ class TestApprovalMatrix(TransactionCase):
             "approver_ids": [
                 (0, 0, {
                     "sequence": 1,
-                    "approval_header": "Limit Approval",
+                    "name": "Limit Approval",
                     "approver_type": "users",
                     "user_ids": [(6, 0, [self.user_approver_1.id])],
                 }),
@@ -707,25 +707,16 @@ class TestApprovalMatrix(TransactionCase):
         app_dept = Approver.new({"approver_type": "dept_manager"})
         app_dept._onchange_approver_type_and_targets()
         self.assertEqual(app_dept.name, "Department Manager")
-        self.assertEqual(app_dept.approval_header, "Department Manager")
 
         # 2. Automatic title for employee_manager
         app_dir = Approver.new({"approver_type": "employee_manager"})
         app_dir._onchange_approver_type_and_targets()
         self.assertEqual(app_dir.name, "Direct Manager")
-        self.assertEqual(app_dir.approval_header, "Direct Manager")
 
         # 3. Manual override is preserved
         app_manual = Approver.new({"approver_type": "dept_manager", "name": "Head of Engineering"})
         app_manual._onchange_approver_type_and_targets()
         self.assertEqual(app_manual.name, "Head of Engineering")
-        self.assertEqual(app_manual.approval_header, "Head of Engineering")
-
-        # 4. Backward compatibility: setting legacy approval_header populates name
-        app_legacy = Approver.new({"approver_type": "dept_manager", "approval_header": "Custom Legacy Header"})
-        app_legacy._onchange_approver_type_and_targets()
-        self.assertEqual(app_legacy.approval_header, "Custom Legacy Header")
-        self.assertEqual(app_legacy.name, "Custom Legacy Header")
 
     def test_22_direct_manager_and_dynamic_requester(self):
         """Test employee_manager approver type resolves direct manager from document's user_request_field_id."""

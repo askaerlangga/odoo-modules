@@ -1,4 +1,6 @@
-from odoo import _, api, fields, models
+import babel.dates
+
+from odoo import api, fields, models
 
 
 class ResUsers(models.Model):
@@ -34,36 +36,17 @@ class ResUsers(models.Model):
         reviews = actionable[:limit]
 
         now = fields.Datetime.now()
+        locale = self.env.lang or "en_US"
         items = []
         for r in reviews:
-            # Model human name (use sudo for ir.model access)
             model_name = r.sudo().res_model_id.name if r.res_model_id else (r.res_model or "Document")
             doc_name = r.res_name or f"{model_name} #{r.res_id}"
-
-            # Calculate relative time string
             dt = r.write_date or r.create_date
-            time_ago = ""
-            if dt:
-                diff = now - dt
-                secs = int(diff.total_seconds())
-                if secs < 60:
-                    time_ago = _("Just now")
-                elif secs < 3600:
-                    mins = secs // 60
-                    time_ago = _("%d minutes ago") % mins if mins > 1 else _("1 minute ago")
-                elif secs < 86400:
-                    hrs = secs // 3600
-                    time_ago = _("%d hours ago") % hrs if hrs > 1 else _("1 hour ago")
-                elif diff.days == 1:
-                    time_ago = _("Yesterday")
-                elif diff.days < 30:
-                    time_ago = _("%d days ago") % diff.days
-                elif diff.days < 365:
-                    months = diff.days // 30
-                    time_ago = _("%d months ago") % months if months > 1 else _("1 month ago")
-                else:
-                    years = diff.days // 365
-                    time_ago = _("%d years ago") % years if years > 1 else _("1 year ago")
+            time_ago = (
+                babel.dates.format_timedelta(dt - now, add_direction=True, locale=locale)
+                if dt
+                else ""
+            )
 
             items.append({
                 "id": r.id,

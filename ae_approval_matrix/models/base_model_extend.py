@@ -162,7 +162,7 @@ class BaseModelExtend(models.AbstractModel):
                     rec.approval_user_can_approve = any(r.user_can_approve for r in pending)
                     rec.approval_can_restart = is_mgr
                     rec.approval_next_review = (
-                        pending[0].name or pending[0].approval_header or _("Level %d") % pending[0].sequence
+                        pending[0].name or _("Level %d") % pending[0].sequence
                     )
                 else:
                     rec.approval_state = "waiting"
@@ -170,7 +170,7 @@ class BaseModelExtend(models.AbstractModel):
                     rec.approval_can_restart = is_mgr
                     waiting = reviews.filtered(lambda r: r.status == "waiting")
                     rec.approval_next_review = (
-                        (waiting[0].name or waiting[0].approval_header or _("Level %d") % waiting[0].sequence)
+                        (waiting[0].name or _("Level %d") % waiting[0].sequence)
                         if waiting
                         else False
                     )
@@ -530,7 +530,7 @@ class BaseModelExtend(models.AbstractModel):
         initial_reviews.sudo().write({"status": "pending"})
         for rev in initial_reviews:
             if matrix.notify_on_create:
-                rev._send_request_notification()
+                rev._send_pending_notification()
             if matrix.create_activity:
                 rev._create_scheduled_activities()
             rev._bus_notify()
@@ -873,18 +873,7 @@ class BaseModelExtend(models.AbstractModel):
             )
 
     # ─── Developer Hook Placeholders ───
-    def _on_approval_requested(self):
-        """Hook called immediately after approval is requested."""
-        pass
-
-    def _on_approval_approved(self):
-        """Hook called when the final approval level is reached and document is approved."""
-        pass
-
-    def _on_approval_rejected(self, reason=False):
-        """Hook called when any reviewer rejects the document."""
-        pass
-
-    def _on_approval_reset(self):
-        """Hook called when validation is restarted or reset."""
-        pass
+    def _on_approval_requested(self): pass
+    def _on_approval_approved(self): pass
+    def _on_approval_rejected(self, reason=False): pass
+    def _on_approval_reset(self): pass

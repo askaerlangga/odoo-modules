@@ -167,10 +167,10 @@
 
                         <t t-if="searchState.showDropdown">
                             <ul class="o-dropdown--menu dropdown-menu o_x2m_search_autocomplete show">
-                                <t t-foreach="dropdownSuggestions" t-as="suggestion" t-key="suggestion.fieldName">
+                                <t t-foreach="fieldList" t-as="suggestion" t-key="suggestion.fieldName">
                                     <li class="o_menu_item dropdown-item"
                                         t-att-class="searchState.focusedIndex === suggestion_index ? 'focus' : ''"
-                                        t-on-mousedown.prevent="() => this.onSelectField(suggestion.fieldName)"
+                                        t-on-mousedown.prevent="() => this._commitSearch(suggestion.fieldName)"
                                     >
                                         <a href="#" t-on-click.prevent="">
                                             Search <b t-esc="suggestion.label"/>
@@ -196,7 +196,7 @@
                                     <i class="me-2 text-action oi oi-group"/>
                                     <h6 class="o_dropdown_title d-inline mb-0">Group By</h6>
                                 </div>
-                                <t t-foreach="groupByFields" t-as="field" t-key="field.fieldName">
+                                <t t-foreach="fieldList" t-as="field" t-key="field.fieldName">
                                     <div
                                         class="o_menu_item dropdown-item rounded-2 d-flex align-items-center gap-2"
                                         t-att-class="groupState.activeField === field.fieldName ? 'o_x2m_groupby_active' : ''"

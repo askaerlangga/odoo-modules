@@ -70,22 +70,6 @@ class ApprovalReview(models.Model):
     )
     sequence = fields.Integer(string="Level", required=True, default=1)
     name = fields.Char(string="Description")
-    approval_header = fields.Char(
-        string="Description (Legacy)",
-        compute="_compute_approval_header",
-        inverse="_inverse_approval_header",
-        store=True,
-    )
-
-    @api.depends("name")
-    def _compute_approval_header(self):
-        for rec in self:
-            rec.approval_header = rec.name
-
-    def _inverse_approval_header(self):
-        for rec in self:
-            if rec.approval_header:
-                rec.name = rec.approval_header
 
     approver_ids = fields.Many2many(
         "res.users",
@@ -179,8 +163,6 @@ class ApprovalReview(models.Model):
     def create(self, vals_list):
         now = fields.Datetime.now()
         for vals in vals_list:
-            if not vals.get("name") and vals.get("approval_header"):
-                vals["name"] = vals["approval_header"]
             if vals.get("status") == "pending" and not vals.get("pending_date"):
                 vals["pending_date"] = now
         records = super().create(vals_list)
@@ -209,32 +191,14 @@ class ApprovalReview(models.Model):
                 doc.invalidate_recordset()
         return res
 
-    def _auto_init(self):
-        res = super()._auto_init()
-        self.env.cr.execute("""
-            DO $$
-            BEGIN
-                IF EXISTS (
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_name = 'approval_review' AND column_name = 'approval_header'
-                ) THEN
-                    UPDATE approval_review
-                    SET name = approval_header
-                    WHERE name IS NULL AND approval_header IS NOT NULL;
-                END IF;
-            END $$;
-        """)
-        return res
-
     _model_res_status_idx = models.Index("(res_model, res_id, status)")
 
-    @api.depends("res_name", "name", "approval_header", "sequence")
+    @api.depends("res_name", "name", "sequence")
     def _compute_display_name(self):
         for rec in self:
             doc = rec.res_name or _("Document")
-            title = rec.name or rec.approval_header
-            if title:
-                rec.display_name = f"{doc} - Level {rec.sequence} ({title})"
+            if rec.name:
+                rec.display_name = f"{doc} - Level {rec.sequence} ({rec.name})"
             else:
                 rec.display_name = f"{doc} - Level {rec.sequence}"
 
@@ -684,37 +648,23 @@ class ApprovalReview(models.Model):
             doc.invalidate_recordset()
         return is_final
 
-    def _execute_auto_confirm(self, doc):
-        """Execute configured confirmation button/method on final approval."""
-        if not doc:
-            return
-        matrix = self.matrix_id
-        btn = matrix.auto_confirm_button_id if matrix else False
-        if not btn or not btn.name:
+    def _execute_auto_button(self, doc, btn):
+        """Execute a configured button/method on ``doc`` with ``skip_approval_check``."""
+        if not doc or not btn or not btn.name:
             return
         method_name = btn.name.strip()
         if method_name.startswith("_") or method_name in _FORBIDDEN_AUTO_METHODS:
-            _logger.warning("Blocked unsafe auto_confirm method '%s' on %s", method_name, doc)
+            _logger.warning("Blocked unsafe auto method '%s' on %s", method_name, doc)
             return
         if hasattr(doc, method_name):
             doc.invalidate_recordset()
             getattr(doc.with_context(skip_approval_check=True), method_name)()
 
+    def _execute_auto_confirm(self, doc):
+        self._execute_auto_button(doc, self.matrix_id.auto_confirm_button_id if self.matrix_id else False)
+
     def _execute_auto_reject(self, doc):
-        """Execute configured button/method on document rejection (e.g. action_cancel)."""
-        if not doc:
-            return
-        matrix = self.matrix_id
-        btn = matrix.auto_reject_button_id if matrix else False
-        if not btn or not btn.name:
-            return
-        method_name = btn.name.strip()
-        if method_name.startswith("_") or method_name in _FORBIDDEN_AUTO_METHODS:
-            _logger.warning("Blocked unsafe auto_reject method '%s' on %s", method_name, doc)
-            return
-        if hasattr(doc, method_name):
-            doc.invalidate_recordset()
-            getattr(doc.with_context(skip_approval_check=True), method_name)()
+        self._execute_auto_button(doc, self.matrix_id.auto_reject_button_id if self.matrix_id else False)
 
     def _activate_next_pending(self):
         self.ensure_one()
@@ -769,7 +719,7 @@ class ApprovalReview(models.Model):
         if not doc or not hasattr(doc, "message_post"):
             return
 
-        header = self.name or self.approval_header or _("Level %s", self.sequence)
+        header = self.name or _("Level %s", self.sequence)
         if delegator:
             approver_name = _("%(delegate)s (on behalf of %(delegator)s)", delegate=self.env.user.name, delegator=delegator.name)
         else:
@@ -839,7 +789,7 @@ class ApprovalReview(models.Model):
         if not doc or not hasattr(doc, "message_post"):
             return
 
-        header = self.name or self.approval_header or _("Level %s", self.sequence)
+        header = self.name or _("Level %s", self.sequence)
         if delegator:
             approver_name = _("%(delegate)s (on behalf of %(delegator)s)", delegate=self.env.user.name, delegator=delegator.name)
         else:
@@ -873,8 +823,8 @@ class ApprovalReview(models.Model):
         if not doc or not hasattr(doc, "message_post"):
             return
 
-        header = self.name or self.approval_header or _("Level %s", self.sequence)
-        target_header = target_review.name or target_review.approval_header or _("Level %s", target_review.sequence)
+        header = self.name or _("Level %s", self.sequence)
+        target_header = target_review.name or _("Level %s", target_review.sequence)
         if delegator:
             approver_name = _("%(delegate)s (on behalf of %(delegator)s)", delegate=self.env.user.name, delegator=delegator.name)
         else:
@@ -913,38 +863,7 @@ class ApprovalReview(models.Model):
         if not partner_ids:
             return
 
-        header = self.name or self.approval_header or _("Level %s", self.sequence)
-        approver_names = ", ".join(self.approver_ids.mapped("name"))
-        quorum_info = _("(%s required)", self.minimum_approved) if self.minimum_approved > 1 else ""
-
-        body = Markup(
-            '<div class="border-start border-3 border-primary ps-2">'
-            '<div class="fw-bold text-primary">%(level)s</div>'
-            '<div class="small text-muted mt-1">%(label)s: %(approvers)s %(quorum)s</div>'
-            '</div>'
-        ) % {
-            "level": f"Level {self.sequence}: {header}",
-            "label": _("Assigned Approvers"),
-            "approvers": approver_names,
-            "quorum": quorum_info,
-        }
-        if hasattr(doc, "message_subscribe"):
-            doc.message_subscribe(partner_ids=partner_ids)
-        doc.message_post(
-            body=body,
-            partner_ids=partner_ids,
-            subtype_xmlid="ae_approval_matrix.mt_approval_requested",
-        )
-
-    def _send_request_notification(self):
-        doc = self._get_document(sudo=True)
-        if not doc or not hasattr(doc, "message_post"):
-            return
-        partner_ids = self.approver_ids.mapped("partner_id").ids
-        if not partner_ids:
-            return
-
-        header = self.name or self.approval_header or _("Level %s", self.sequence)
+        header = self.name or _("Level %s", self.sequence)
         approver_names = ", ".join(self.approver_ids.mapped("name"))
         quorum_info = _("(%s required)", self.minimum_approved) if self.minimum_approved > 1 else ""
 
@@ -976,7 +895,7 @@ class ApprovalReview(models.Model):
         if not act_type:
             return
         doc_name = self.res_name or _("Document")
-        header = self.name or self.approval_header or _("Level %s", self.sequence)
+        header = self.name or _("Level %s", self.sequence)
         summary = _("Approval Needed: %s") % (header or doc_name)
         note = _("Please review and approve document %s (Level %s: %s).") % (doc_name, self.sequence, header)
         for user in self.approver_ids:
@@ -987,36 +906,29 @@ class ApprovalReview(models.Model):
                 user_id=user.id,
             )
 
-    def _close_user_activity(self, user_id):
+    def _close_activities(self, user_ids=None, unlink=True):
         doc = self._get_document(sudo=True)
         if not doc or not hasattr(doc, "activity_ids"):
             return
+        target_uids = set(user_ids if user_ids is not None else self.approver_ids.ids)
         activities = doc.activity_ids.filtered(
-            lambda a: a.user_id.id == user_id and (
+            lambda a: a.user_id.id in target_uids and (
                 "Approval Required" in (a.summary or "")
                 or "Approval Needed" in (a.summary or "")
                 or (self.name and self.name in (a.summary or ""))
-                or (self.approval_header and self.approval_header in (a.summary or ""))
             )
         )
         if activities:
-            activities.action_done()
+            if unlink:
+                activities.unlink()
+            else:
+                activities.action_done()
+
+    def _close_user_activity(self, user_id):
+        self._close_activities(user_ids=[user_id], unlink=False)
 
     def _close_all_activities(self):
-        doc = self._get_document(sudo=True)
-        if not doc or not hasattr(doc, "activity_ids"):
-            return
-        approver_uids = self.approver_ids.ids
-        activities = doc.activity_ids.filtered(
-            lambda a: a.user_id.id in approver_uids and (
-                "Approval Required" in (a.summary or "")
-                or "Approval Needed" in (a.summary or "")
-                or (self.name and self.name in (a.summary or ""))
-                or (self.approval_header and self.approval_header in (a.summary or ""))
-            )
-        )
-        if activities:
-            activities.unlink()
+        self._close_activities()
 
     def _bus_notify(self):
         """Notify users (and active delegates) via bus.bus to update systray realtime."""
@@ -1077,7 +989,7 @@ class ApprovalReview(models.Model):
         remaining = self.approver_ids - self.approved_by_ids - self.on_behalf_of_ids
         if not remaining:
             return
-        header = self.name or self.approval_header or _("Level %s", self.sequence)
+        header = self.name or _("Level %s", self.sequence)
         if doc and hasattr(doc, "message_post"):
             partner_ids = remaining.mapped("partner_id").ids
             body = Markup(
@@ -1134,7 +1046,7 @@ class ApprovalReview(models.Model):
             self.write({"approver_ids": [fields.Command.link(u.id) for u in new_users]})
 
         doc = self._get_document(sudo=True)
-        header = self.name or self.approval_header or _("Level %s", self.sequence)
+        header = self.name or _("Level %s", self.sequence)
         if doc and hasattr(doc, "message_post") and escalation_users:
             partner_ids = escalation_users.mapped("partner_id").ids
             if hasattr(doc, "message_subscribe"):
@@ -1193,7 +1105,7 @@ class ApprovalReview(models.Model):
 
         doc_sudo = self._get_document(sudo=True)
         if doc_sudo and hasattr(doc_sudo, "message_post"):
-            header = self.name or self.approval_header or _("Level %s", self.sequence)
+            header = self.name or _("Level %s", self.sequence)
             body = Markup(
                 '<div class="border-start border-3 border-info ps-2">'
                 '<div class="fw-bold text-info">%(title)s</div>'

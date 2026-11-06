@@ -264,41 +264,10 @@ class ApprovalMatrix(models.Model):
                     "otherwise users cannot request approval."
                 ))
 
-    @api.constrains("name", "company_id")
-    def _check_name_company_unique(self):
-        for rec in self:
-            domain = [
-                ("name", "=", rec.name),
-                ("company_id", "=", rec.company_id.id),
-                ("id", "!=", rec.id),
-            ]
-            if self.search_count(domain) > 0:
-                raise ValidationError(_("Approval matrix name must be unique per company."))
-
     _name_company_unique = models.Constraint(
         "UNIQUE(name, company_id)",
         "Approval matrix name must be unique per company.",
     )
-
-    def _auto_init(self):
-        from odoo.tools.sql import constraint_definition, drop_constraint
-        # Drop legacy workflow constraints if they still exist in PostgreSQL
-        for table, con in [
-            ("approval_matrix", "approval_workflow_name_company_unique"),
-            ("approval_matrix_state_option", "approval_workflow_state_option_model_val_unique"),
-            ("approval_matrix_button_option", "approval_workflow_button_option_model_btn_unique"),
-        ]:
-            if constraint_definition(self.env.cr, table, con):
-                drop_constraint(self.env.cr, table, con)
-        self.env.cr.execute("""
-            DELETE FROM ir_model_constraint
-            WHERE name IN (
-                'approval_workflow_name_company_unique',
-                'approval_workflow_state_option_model_val_unique',
-                'approval_workflow_button_option_model_btn_unique'
-            )
-        """)
-        return super()._auto_init()
 
     # ─── Cache Management ───
     @api.model_create_multi
@@ -516,17 +485,7 @@ class ApprovalMatrix(models.Model):
     # ─── Domain Matching ───
     def matches(self, record):
         self.ensure_one()
-        domain_str = (self.manual_domain or "[]").strip()
-        if not domain_str or domain_str == "[]":
-            return True
-        try:
-            domain = literal_eval(domain_str)
-        except (ValueError, SyntaxError):
-            _logger.error("approval.matrix %s: cannot parse domain '%s'", self.name, domain_str)
-            return False
-        if not domain:
-            return True
-        return bool(record.filtered_domain(domain))
+        return bool(self._filter_matching_records(record))
 
     @api.model
     def find_matching_matrices(self, res_model, record, matrices=None):
@@ -699,14 +658,14 @@ class ApprovalMatrix(models.Model):
                 raise ValidationError(
                     _("Approval Matrix '%s' Level %d (%s) requires an approver, but no user could be determined.\n"
                       "Please ensure the department/direct manager or group is properly assigned, or contact your administrator.")
-                    % (self.name, idx, approver.name or approver.approval_header or _("Level %d") % idx)
+                    % (self.name, idx, approver.name or _("Level %d") % idx)
                 )
 
             min_app = approver.minimum_approved if not approver.require_all else len(users)
             if min_app > len(users):
                 min_app = len(users)
 
-            header_title = approver.name or approver.approval_header or approver._get_default_name() or (_("Level %d") % idx)
+            header_title = approver.name or approver._get_default_name() or (_("Level %d") % idx)
             vals_list.append({
                 "res_model_id": model.id,
                 "res_id": record.id,
@@ -714,7 +673,6 @@ class ApprovalMatrix(models.Model):
                 "level_id": approver.id,
                 "sequence": idx,
                 "name": header_title,
-                "approval_header": header_title,
                 "approver_ids": [fields.Command.set(users.ids)],
                 "minimum_approved": max(1, min_app),
                 "status": "waiting",
@@ -746,22 +704,6 @@ class ApprovalMatrixApprover(models.Model):
     level = fields.Integer(string="Level Number", compute="_compute_level")
     level_display = fields.Char(string="Level", compute="_compute_level")
     name = fields.Char(string="Description")
-    approval_header = fields.Char(
-        string="Description (Legacy)",
-        compute="_compute_approval_header",
-        inverse="_inverse_approval_header",
-        store=True,
-    )
-
-    @api.depends("name")
-    def _compute_approval_header(self):
-        for rec in self:
-            rec.approval_header = rec.name
-
-    def _inverse_approval_header(self):
-        for rec in self:
-            if rec.approval_header:
-                rec.name = rec.approval_header
     approver_type = fields.Selection(
         [
             ("users", "Specific Users"),
@@ -847,7 +789,7 @@ class ApprovalMatrixApprover(models.Model):
         if not self.id:
             raise UserError(_("Please save the approval matrix first before configuring level conditions."))
         return {
-            "name": _("Level Condition: %s") % (self.name or self.approval_header or _("Level %s") % (self.sequence or 1)),
+            "name": _("Level Condition: %s") % (self.name or _("Level %s") % (self.sequence or 1)),
             "type": "ir.actions.act_window",
             "res_model": "approval.matrix.approver",
             "res_id": self.id,
@@ -887,23 +829,6 @@ class ApprovalMatrixApprover(models.Model):
             else:
                 rec.quorum_display = _("Min. %d") % max(1, rec.minimum_approved)
 
-    def _auto_init(self):
-        res = super()._auto_init()
-        self.env.cr.execute("""
-            DO $$
-            BEGIN
-                IF EXISTS (
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_name = 'approval_matrix_approver' AND column_name = 'approval_header'
-                ) THEN
-                    UPDATE approval_matrix_approver
-                    SET name = approval_header
-                    WHERE name IS NULL AND approval_header IS NOT NULL;
-                END IF;
-            END $$;
-        """)
-        return res
-
     @api.depends("name", "sequence")
     def _compute_display_name(self):
         for rec in self:
@@ -924,11 +849,8 @@ class ApprovalMatrixApprover(models.Model):
             return _("%s (+%d others)") % (names[0], len(names) - 1)
         return False
 
-    _get_default_header = _get_default_name
-
     @api.onchange("approver_type", "group_id", "user_ids")
     def _onchange_approver_type_and_targets(self):
-        current_title = self.name or self.approval_header
         auto_title = self._get_default_name()
         if auto_title:
             auto_prefixes = {
@@ -937,18 +859,11 @@ class ApprovalMatrixApprover(models.Model):
                 "Department Manager",
                 "Direct Manager",
             }
-            if not current_title or current_title in auto_prefixes:
+            if not self.name or self.name in auto_prefixes:
                 self.name = auto_title
-            elif not self.name and self.approval_header:
-                self.name = self.approval_header
-        elif not self.name and self.approval_header:
-            self.name = self.approval_header
 
     @api.model_create_multi
     def create(self, vals_list):
-        for vals in vals_list:
-            if not vals.get("name") and vals.get("approval_header"):
-                vals["name"] = vals["approval_header"]
         records = super().create(vals_list)
         for rec in records:
             if not rec.name:
