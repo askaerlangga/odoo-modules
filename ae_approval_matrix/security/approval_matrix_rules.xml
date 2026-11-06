@@ -16,4 +16,32 @@
         <field name="model_id" ref="model_approval_exception"/>
         <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
     </record>
+
+    <record id="approval_delegate_comp_rule" model="ir.rule">
+        <field name="name">Approval Delegate multi-company</field>
+        <field name="model_id" ref="model_approval_delegate"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="approval_delegate_user_own_rule" model="ir.rule">
+        <field name="name">Approval Delegate: Users manage own delegations</field>
+        <field name="model_id" ref="model_approval_delegate"/>
+        <field name="groups" eval="[Command.link(ref('base.group_user'))]"/>
+        <field name="perm_read" eval="False"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+        <field name="domain_force">[('delegator_id', '=', user.id)]</field>
+    </record>
+
+    <record id="approval_delegate_manager_rule" model="ir.rule">
+        <field name="name">Approval Delegate: Manager full access</field>
+        <field name="model_id" ref="model_approval_delegate"/>
+        <field name="groups" eval="[Command.link(ref('ae_approval_matrix.group_approval_manager'))]"/>
+        <field name="perm_read" eval="False"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+    </record>
 </odoo>

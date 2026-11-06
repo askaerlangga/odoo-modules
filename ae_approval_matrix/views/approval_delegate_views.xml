@@ -1,0 +1,91 @@
+<odoo>
+    <record id="view_approval_delegate_tree" model="ir.ui.view">
+        <field name="name">approval.delegate.list</field>
+        <field name="model">approval.delegate</field>
+        <field name="arch" type="xml">
+            <list string="Approval Delegations">
+                <field name="name"/>
+                <field name="delegator_id" widget="many2one_avatar_user"/>
+                <field name="delegate_id" widget="many2one_avatar_user"/>
+                <field name="date_from"/>
+                <field name="date_to"/>
+                <field name="matrix_ids" widget="many2many_tags" placeholder="All Matrices" optional="show"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_approval_delegate_form" model="ir.ui.view">
+        <field name="name">approval.delegate.form</field>
+        <field name="model">approval.delegate</field>
+        <field name="arch" type="xml">
+            <form string="Approval Delegation">
+                <field name="active" invisible="1"/>
+                <sheet>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_title">
+                        <label for="name" string="Reference"/>
+                        <h1>
+                            <field name="name" placeholder="e.g. Annual Leave Delegation"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Delegation Assignment">
+                            <field name="delegator_id" widget="many2one_avatar_user" options="{'no_create': True}"/>
+                            <field name="delegate_id" widget="many2one_avatar_user" options="{'no_create': True}"/>
+                            <field name="company_id" groups="base.group_multi_company" options="{'no_create': True}"/>
+                        </group>
+                        <group string="Validity Period &amp; Scope">
+                            <field name="date_from"/>
+                            <field name="date_to"/>
+                            <field name="matrix_ids" widget="many2many_tags"
+                                placeholder="All Approval Matrices"
+                                options="{'no_create': True}"/>
+                        </group>
+                    </group>
+                    <group string="Reason / Handover Notes">
+                        <field name="notes" nolabel="1" placeholder="Specify reason for delegation (e.g. Out of office / business trip)..."/>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_approval_delegate_search" model="ir.ui.view">
+        <field name="name">approval.delegate.search</field>
+        <field name="model">approval.delegate</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="delegator_id"/>
+                <field name="delegate_id"/>
+                <filter name="my_delegations" string="My Delegations"
+                    domain="['|', ('delegator_id', '=', uid), ('delegate_id', '=', uid)]"/>
+                <filter name="active" string="Active" domain="[('active', '=', True)]"/>
+                <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter name="group_by_delegator" string="Original Approver" context="{'group_by': 'delegator_id'}"/>
+                    <filter name="group_by_delegate" string="Substitute Approver" context="{'group_by': 'delegate_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_my_approval_delegate" model="ir.actions.act_window">
+        <field name="name">My Approval Delegations</field>
+        <field name="res_model">approval.delegate</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_approval_delegate_search"/>
+        <field name="context">{'search_default_my_delegations': 1, 'search_default_active': 1}</field>
+    </record>
+
+    <record id="action_approval_delegate" model="ir.actions.act_window">
+        <field name="name">All Approval Delegations</field>
+        <field name="res_model">approval.delegate</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_approval_delegate_search"/>
+        <field name="context">{'search_default_active': 1}</field>
+    </record>
+</odoo>

@@ -5,25 +5,33 @@ class ResUsers(models.Model):
     _inherit = "res.users"
 
     @api.model
+    def _get_actionable_pending_reviews(self):
+        """Return recordset of pending approval reviews actionable by the active user (including delegations)."""
+        uid = self.env.user.id
+        delegator_uids = self.env["approval.delegate"]._get_delegator_uids_for_user(uid)
+        candidate_uids = list({uid} | delegator_uids)
+        candidates = self.env["approval.review"].search(
+            [
+                ("approver_ids", "in", candidate_uids),
+                ("status", "=", "pending"),
+                ("approved_by_ids", "not in", [uid]),
+                ("rejected_by_ids", "not in", [uid]),
+            ],
+            order="write_date desc, id desc",
+        )
+        return candidates.filtered(lambda r: r.user_can_approve)
+
+    @api.model
     def get_approval_review_count(self):
         """Returns the number of reviews currently pending action by the active user."""
-        return self.env["approval.review"].search_count([
-            ("approver_ids", "in", [self.env.user.id]),
-            ("status", "=", "pending"),
-            ("approved_by_ids", "not in", [self.env.user.id]),
-        ])
+        return len(self._get_actionable_pending_reviews())
 
     @api.model
     def get_pending_approval_reviews(self, limit=10):
         """Returns pending approval reviews and count for active user popup preview."""
-        domain = [
-            ("approver_ids", "in", [self.env.user.id]),
-            ("status", "=", "pending"),
-            ("approved_by_ids", "not in", [self.env.user.id]),
-        ]
-        Review = self.env["approval.review"]
-        count = Review.search_count(domain)
-        reviews = Review.search(domain, order="write_date desc, id desc", limit=limit)
+        actionable = self._get_actionable_pending_reviews()
+        count = len(actionable)
+        reviews = actionable[:limit]
 
         now = fields.Datetime.now()
         items = []

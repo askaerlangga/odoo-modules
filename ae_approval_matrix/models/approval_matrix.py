@@ -184,6 +184,17 @@ class ApprovalMatrix(models.Model):
         default=False,
         help="If checked, clicking Approve prompts for a comment wizard. Otherwise, 1-click immediate approve.",
     )
+    prevent_self_approval = fields.Boolean(
+        string="Prevent Self-Approval (Maker-Checker)",
+        default=False,
+        help="Prevent the document creator or requester from approving their own document. "
+             "If they are the sole approver on a level, it automatically escalates to their HR Direct Manager.",
+    )
+    allow_send_back = fields.Boolean(
+        string="Allow Send Back to Previous Level",
+        default=True,
+        help="Allow approvers on Level 2+ (in sequential mode) to return the document to a previous level for revision.",
+    )
     user_request_field_id = fields.Many2one(
         "ir.model.fields",
         string="Requester / Employee User Field",
@@ -620,10 +631,50 @@ class ApprovalMatrix(models.Model):
 
         return self.env["res.users"]
 
+    def _get_document_requester_uids(self, record):
+        """Return set of user IDs considered the maker/requester of ``record``."""
+        self.ensure_one()
+        uids = set()
+        if not record:
+            return uids
+        if self.user_request_field_id and self.user_request_field_id.name in record._fields:
+            val = record[self.user_request_field_id.name]
+            if val:
+                if self.user_request_field_id.relation == "hr.employee":
+                    if val.user_id:
+                        uids.add(val.user_id.id)
+                else:
+                    uids.add(val.id)
+        elif "user_id" in record._fields and record.user_id:
+            uids.add(record.user_id.id)
+
+        if hasattr(record, "create_uid") and record.create_uid:
+            uids.add(record.create_uid.id)
+        return uids
+
+    def _get_fallback_manager_for_users(self, user_ids):
+        """Resolve HR Direct Manager user(s) above ``user_ids`` (excluding ``user_ids`` themselves)."""
+        if not user_ids:
+            return self.env["res.users"]
+        forbidden = set(user_ids)
+        employees = self.env["hr.employee"].sudo().search([("user_id", "in", list(forbidden))])
+        fallback_users = self.env["res.users"]
+        for emp in employees:
+            visited = {emp.id}
+            parent = emp.parent_id
+            while parent and parent.id not in visited:
+                visited.add(parent.id)
+                if parent.user_id and parent.user_id.id not in forbidden and parent.user_id.active:
+                    fallback_users |= parent.user_id
+                    break
+                parent = parent.parent_id
+        return fallback_users
+
     def generate_reviews(self, record):
         self.ensure_one()
         model = self.env["ir.model"].sudo().search([("model", "=", record._name)], limit=1)
         vals_list = []
+        forbidden_uids = self._get_document_requester_uids(record) if self.prevent_self_approval else set()
 
         for idx, approver in enumerate(self.approver_ids.sorted(lambda a: (a.sequence, a.id)), start=1):
             if approver.level_domain and approver.level_domain.strip() not in ("", "[]"):
@@ -635,6 +686,12 @@ class ApprovalMatrix(models.Model):
                     pass
 
             users = self._resolve_approver_users(approver, record)
+            if forbidden_uids and users:
+                filtered_users = users.filtered(lambda u: u.id not in forbidden_uids)
+                if not filtered_users:
+                    filtered_users = self._get_fallback_manager_for_users(forbidden_uids)
+                users = filtered_users
+
             if not users:
                 if approver.skip_if_empty:
                     _logger.info("approval.matrix %s: Level %s approver empty, skipped.", self.name, idx)
@@ -749,6 +806,26 @@ class ApprovalMatrixApprover(models.Model):
         string="Min. Approvers Required",
         default=1,
         help="Minimum number of approvals needed for this level when Require All is disabled.",
+    )
+    sla_hours = fields.Float(
+        string="SLA (Hours)",
+        default=0.0,
+        help="Maximum hours allowed in Pending status before SLA action is triggered. Set 0 to disable.",
+    )
+    sla_action = fields.Selection(
+        [
+            ("remind", "Send Reminder"),
+            ("escalate", "Auto-Escalate to Manager / User"),
+            ("auto_approve", "Auto-Approve / Bypass Level"),
+        ],
+        string="SLA Action",
+        default="remind",
+        required=True,
+    )
+    sla_escalate_user_id = fields.Many2one(
+        "res.users",
+        string="Escalation User",
+        help="Optional target user for SLA escalation. If empty, escalates to the approver's HR Direct/Department Manager.",
     )
     level_domain = fields.Char(
         string="Level Threshold / Condition",
@@ -887,7 +964,7 @@ class ApprovalMatrixApprover(models.Model):
         elif not self.minimum_approved:
             self.minimum_approved = 1
 
-    @api.constrains("minimum_approved", "require_all", "approver_type", "user_ids", "group_id", "skip_if_empty")
+    @api.constrains("minimum_approved", "require_all", "approver_type", "user_ids", "group_id", "skip_if_empty", "sla_hours")
     def _check_approver_config(self):
         for rec in self:
             lvl = rec.level or rec.sequence
@@ -897,3 +974,5 @@ class ApprovalMatrixApprover(models.Model):
                 raise ValidationError(_("Level %d: Please select a Security Group or enable 'Skip if Empty'.") % lvl)
             if not rec.require_all and rec.minimum_approved <= 0:
                 raise ValidationError(_("Level %d: Minimum approvers required must be at least 1.") % lvl)
+            if rec.sla_hours and rec.sla_hours < 0:
+                raise ValidationError(_("Level %d: SLA hours cannot be negative.") % lvl)

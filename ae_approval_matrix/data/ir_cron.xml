@@ -1,0 +1,11 @@
+<odoo noupdate="1">
+    <record id="ir_cron_process_sla_reviews" model="ir.cron">
+        <field name="name">Approval Matrix: Process SLA Timeouts &amp; Escalations</field>
+        <field name="model_id" ref="model_approval_review"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_process_sla_reviews()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">hours</field>
+        <field name="active" eval="True"/>
+    </record>
+</odoo>

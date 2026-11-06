@@ -20,6 +20,12 @@
         groups="ae_approval_matrix.group_approval_manager"
         sequence="20"/>
 
+    <menuitem id="menu_approval_my_delegations"
+        name="My Delegations"
+        parent="menu_approval_root"
+        action="action_my_approval_delegate"
+        sequence="30"/>
+
     <!-- Configuration -->
     <menuitem id="menu_approval_config"
         name="Configuration"
@@ -38,4 +44,10 @@
         parent="menu_approval_config"
         action="action_approval_exception"
         sequence="20"/>
+
+    <menuitem id="menu_approval_delegates_config"
+        name="Approval Delegations"
+        parent="menu_approval_config"
+        action="action_approval_delegate"
+        sequence="30"/>
 </odoo>

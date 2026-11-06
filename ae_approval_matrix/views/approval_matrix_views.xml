@@ -73,6 +73,8 @@
                         <group name="flow_options" string="Approval Behavior">
                             <field name="approve_sequence"/>
                             <field name="approve_sequence_bypass" invisible="not approve_sequence"/>
+                            <field name="allow_send_back" invisible="not approve_sequence"/>
+                            <field name="prevent_self_approval"/>
                             <field name="require_approve_comment"/>
                         </group>
                     </group>
@@ -107,6 +109,9 @@
                                     <field name="require_all" string="All Approvers?"/>
                                     <field name="minimum_approved" string="Min. Approvals" invisible="require_all"/>
                                     <field name="skip_if_empty" optional="show"/>
+                                    <field name="sla_hours" string="SLA (h)" optional="show"/>
+                                    <field name="sla_action" string="SLA Action" optional="hide" invisible="sla_hours &lt;= 0"/>
+                                    <field name="sla_escalate_user_id" string="Escalate To" optional="hide" invisible="sla_hours &lt;= 0 or sla_action != 'escalate'"/>
                                     <button name="action_configure_domain" type="object"
                                         icon="fa-external-link"
                                         title="Configure Level Condition"
@@ -135,9 +140,14 @@
                                             <field name="name" string="Description" placeholder="e.g. Direct Manager, Finance Review"/>
                                             <field name="skip_if_empty"/>
                                         </group>
-                                        <group string="Quorum Settings">
+                                        <group string="Quorum &amp; SLA Settings">
                                             <field name="require_all"/>
                                             <field name="minimum_approved" invisible="require_all"/>
+                                            <field name="sla_hours"/>
+                                            <field name="sla_action" invisible="sla_hours &lt;= 0"/>
+                                            <field name="sla_escalate_user_id"
+                                                invisible="sla_hours &lt;= 0 or sla_action != 'escalate'"
+                                                options="{'no_create': True}"/>
                                         </group>
                                     </group>
                                     <group string="Level Threshold / Condition (Optional)">

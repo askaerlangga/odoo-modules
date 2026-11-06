@@ -6,14 +6,27 @@
             <form string="Approval Review Action">
                 <field name="res_model" invisible="1"/>
                 <field name="res_id" invisible="1"/>
+                <field name="review_id" invisible="1"/>
+                <field name="review_ids" invisible="1"/>
+                <field name="review_count" invisible="1"/>
+                <field name="is_bulk" invisible="1"/>
+                <field name="can_send_back" invisible="1"/>
+                <field name="available_previous_review_ids" invisible="1"/>
                 <field name="action_type" invisible="1"/>
                 <sheet>
                     <div class="alert alert-info" role="alert" invisible="action_type != 'approve'">
                         <i class="fa fa-info-circle me-1"/> You may optionally provide an approval note/comment below.
                     </div>
                     <div class="alert alert-warning" role="alert" invisible="action_type != 'reject'">
-                        <i class="fa fa-warning me-1"/> Please state the reason for rejecting this document.
+                        <i class="fa fa-warning me-1"/> Please state the reason for rejecting or returning this document.
                     </div>
+                    <group invisible="action_type != 'reject' or not can_send_back">
+                        <field name="reject_mode" widget="radio"/>
+                        <field name="target_review_id"
+                            invisible="reject_mode != 'send_back'"
+                            required="action_type == 'reject' and reject_mode == 'send_back'"
+                            options="{'no_create': True, 'no_open': True}"/>
+                    </group>
                     <group>
                         <field name="comment" placeholder="Write your comments or reasons here..." required="action_type == 'reject'"/>
                     </group>
@@ -24,9 +37,13 @@
                         class="btn-success"
                         invisible="action_type != 'approve'"/>
                     <button name="action_confirm" type="object"
+                        string="Send Back for Revision"
+                        class="btn-warning"
+                        invisible="action_type != 'reject' or reject_mode != 'send_back'"/>
+                    <button name="action_confirm" type="object"
                         string="Confirm Rejection"
                         class="btn-danger"
-                        invisible="action_type != 'reject'"/>
+                        invisible="action_type != 'reject' or reject_mode == 'send_back'"/>
                     <button string="Cancel" class="btn-secondary" special="cancel"/>
                 </footer>
             </form>

@@ -31,6 +31,12 @@
         <field name="model">approval.review</field>
         <field name="arch" type="xml">
             <list string="Approval Reviews" default_order="sequence, id" create="false" edit="false">
+                <header>
+                    <button name="action_bulk_approve_wizard" type="object"
+                        string="Approve Selected" class="btn-success" icon="fa-check"/>
+                    <button name="action_bulk_reject_wizard" type="object"
+                        string="Reject Selected" class="btn-danger" icon="fa-times"/>
+                </header>
                 <field name="sequence" string="Level"/>
                 <field name="res_name" string="Document"/>
                 <field name="res_model" string="Model"/>
@@ -39,6 +45,8 @@
                 <field name="minimum_approved" string="Min. Required"/>
                 <field name="approved_by_ids" widget="many2many_tags"/>
                 <field name="rejected_by_ids" widget="many2many_tags"/>
+                <field name="delegated_info" optional="hide"/>
+                <field name="sla_deadline" optional="show"/>
                 <field name="status" widget="badge"
                     decoration-success="status == 'approved'"
                     decoration-danger="status == 'rejected'"
@@ -92,6 +100,8 @@
                             <field name="minimum_approved" readonly="1"/>
                             <field name="approved_count" readonly="1"/>
                             <field name="rejected_count" readonly="1"/>
+                            <field name="pending_date" readonly="1" invisible="not pending_date"/>
+                            <field name="sla_deadline" readonly="1" invisible="not sla_deadline"/>
                             <field name="action_datetime" readonly="1"/>
                         </group>
                     </group>
@@ -101,6 +111,8 @@
                     <group string="Approved By" invisible="not approved_by_ids">
                         <group>
                             <field name="approved_by_ids" widget="many2many_tags" readonly="1"/>
+                            <field name="on_behalf_of_ids" widget="many2many_tags" readonly="1" invisible="not on_behalf_of_ids"/>
+                            <field name="delegated_info" readonly="1" invisible="not delegated_info"/>
                         </group>
                         <group>
                             <field name="comment" readonly="1" invisible="not comment"/>
@@ -164,5 +176,23 @@
         <field name="search_view_id" ref="view_approval_review_search"/>
         <field name="domain">[('approver_ids', 'in', [uid]), ('status', '=', 'pending'), ('approved_by_ids', 'not in', [uid])]</field>
         <field name="context">{'search_default_my_pending': 1}</field>
+    </record>
+
+    <record id="action_server_bulk_approve_reviews" model="ir.actions.server">
+        <field name="name">Approve Selected Reviews</field>
+        <field name="model_id" ref="model_approval_review"/>
+        <field name="binding_model_id" ref="model_approval_review"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_bulk_approve_wizard()</field>
+    </record>
+
+    <record id="action_server_bulk_reject_reviews" model="ir.actions.server">
+        <field name="name">Reject Selected Reviews</field>
+        <field name="model_id" ref="model_approval_review"/>
+        <field name="binding_model_id" ref="model_approval_review"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_bulk_reject_wizard()</field>
     </record>
 </odoo>
