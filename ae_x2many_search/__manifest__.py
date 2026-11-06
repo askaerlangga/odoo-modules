@@ -8,6 +8,7 @@
     "depends": ["web"],
     "license": "LGPL-3",
     "images": [
+        "static/description/banner.png",
         "static/description/images/main_screenshot.png",
         "static/description/images/search_bar.png",
         "static/description/images/group_by.png",

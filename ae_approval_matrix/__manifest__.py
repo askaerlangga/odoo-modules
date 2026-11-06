@@ -7,6 +7,7 @@
     "website": "https://www.askaerlangga.my.id",
     "license": "LGPL-3",
     "images": [
+        "static/description/banner.png",
         "static/description/01_matrix_configuration.png",
         "static/description/02_document_waiting_approval.png",
         "static/description/03_approval_lines_tab.png",
