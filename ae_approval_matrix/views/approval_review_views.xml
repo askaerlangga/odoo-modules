@@ -40,6 +40,7 @@
                 <field name="sequence" string="Level"/>
                 <field name="res_name" string="Document"/>
                 <field name="res_model" string="Model"/>
+                <field name="requested_by_id" optional="show"/>
                 <field name="approver_ids" widget="many2many_tags" string="Assigned Approvers"/>
                 <field name="name" string="Description"/>
                 <field name="minimum_approved" string="Min. Required"/>
@@ -93,6 +94,7 @@
                         <group name="doc_info" string="Document Details">
                             <field name="res_name" readonly="1"/>
                             <field name="res_model" readonly="1"/>
+                            <field name="requested_by_id" readonly="1"/>
                             <field name="matrix_id" readonly="1" string="Approval Matrix"/>
                             <field name="sequence" readonly="1"/>
                         </group>

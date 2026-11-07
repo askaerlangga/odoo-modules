@@ -68,6 +68,12 @@ class ApprovalReview(models.Model):
         string="Matrix Level",
         ondelete="set null",
     )
+    requested_by_id = fields.Many2one(
+        "res.users",
+        string="Requested By",
+        readonly=True,
+        index=True,
+    )
     sequence = fields.Integer(string="Level", required=True, default=1)
     name = fields.Char(string="Description")
 
@@ -273,6 +279,8 @@ class ApprovalReview(models.Model):
         matrix = self.matrix_id.sudo() if self.matrix_id else False
         if not matrix or not matrix.prevent_self_approval:
             return False
+        if self.requested_by_id and uid == self.requested_by_id.id:
+            return True
         doc = self._get_document(sudo=True)
         if not doc:
             return False
@@ -325,6 +333,7 @@ class ApprovalReview(models.Model):
         "rejected_by_ids",
         "on_behalf_of_ids",
         "minimum_approved",
+        "requested_by_id",
         "matrix_id.prevent_self_approval",
     )
     def _compute_user_can_approve(self):
@@ -1038,6 +1047,8 @@ class ApprovalReview(models.Model):
         if self.matrix_id and self.matrix_id.prevent_self_approval:
             doc = self._get_document(sudo=True)
             forbidden_uids = self.matrix_id._get_document_requester_uids(doc) if doc else set()
+            if self.requested_by_id:
+                forbidden_uids.add(self.requested_by_id.id)
             if forbidden_uids:
                 escalation_users = escalation_users.filtered(lambda u: u.id not in forbidden_uids)
 

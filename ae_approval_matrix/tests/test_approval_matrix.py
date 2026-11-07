@@ -1196,6 +1196,7 @@ class TestApprovalMatrix(TransactionCase):
         partner.with_user(self.user_requester).action_request_approval()
 
         rev = partner.approval_review_ids[0]
+        self.assertEqual(rev.requested_by_id, self.user_requester)
         # Requester was excluded and replaced by their HR Direct Manager (user_approver_2)
         self.assertNotIn(self.user_requester, rev.approver_ids)
         self.assertIn(self.user_approver_2, rev.approver_ids)
@@ -1211,6 +1212,50 @@ class TestApprovalMatrix(TransactionCase):
         rev.with_user(self.user_approver_2).action_approve()
         self.assertEqual(rev.status, "approved")
         self.assertEqual(partner.approval_state, "approved")
+        matrix.active = False
+
+    def test_37_maker_checker_requester_blocked_on_third_party_doc(self):
+        """Test that user clicking 'Request Approval' on a third-party document is recorded as requested_by_id and blocked from self-approval."""
+        self.env["approval.matrix"].search([("res_model", "=", "res.partner")]).write({"active": False})
+        self.employee_requester.parent_id = self.employee_manager
+
+        matrix = self.env["approval.matrix"].create({
+            "name": "Third Party Doc Maker Checker Matrix",
+            "model_id": self.partner_model.id,
+            "company_id": self.company.id,
+            "prevent_self_approval": True,
+            "approver_ids": [
+                (0, 0, {
+                    "sequence": 1,
+                    "name": "Approver Level",
+                    "approver_type": "users",
+                    "user_ids": [(6, 0, [self.user_requester.id, self.user_approver_1.id])],
+                }),
+            ],
+        })
+
+        # Partner created by admin (not user_requester)
+        partner = self.env["res.partner"].create({
+            "name": "Third Party Partner",
+            "company_id": self.company.id,
+        })
+        # user_requester requests approval
+        partner.with_user(self.user_requester).action_request_approval()
+
+        rev = partner.approval_review_ids[0]
+        self.assertEqual(rev.requested_by_id, self.user_requester)
+        # user_requester was filtered out because they clicked Request Approval
+        self.assertNotIn(self.user_requester, rev.approver_ids)
+        self.assertIn(self.user_approver_1, rev.approver_ids)
+        self.assertFalse(rev.with_user(self.user_requester).user_can_approve)
+
+        # Runtime guard also blocks user_requester even if manually added
+        rev.sudo().write({"approver_ids": [(4, self.user_requester.id)]})
+        rev.invalidate_recordset()
+        self.assertFalse(rev.with_user(self.user_requester).user_can_approve)
+        with self.assertRaises(UserError):
+            rev.with_user(self.user_requester).action_approve()
+
         matrix.active = False
 
     def test_34_sla_timeout_remind_escalate_and_auto_approve(self):

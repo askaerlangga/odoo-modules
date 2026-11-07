@@ -516,8 +516,13 @@ class BaseModelExtend(models.AbstractModel):
             raise UserError(_("An approval process is already active for this document."))
 
         matrix = matrices[0]
-        created_reviews = matrix.generate_reviews(self)
+        created_reviews = matrix.generate_reviews(self, requester=self.env.user)
         if not created_reviews:
+            if matrix.prevent_self_approval:
+                raise UserError(
+                    _("Maker-Checker Policy: No eligible approvers were found for this document because you (%s) requested the approval, and no alternate approver or manager is configured on the matrix.")
+                    % self.env.user.name
+                )
             raise UserError(_("No approval levels were generated for this approval matrix."))
 
         sorted_reviews = created_reviews.sorted("sequence")

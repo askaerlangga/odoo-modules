@@ -621,11 +621,18 @@ class ApprovalMatrix(models.Model):
                 parent = parent.parent_id
         return fallback_users
 
-    def generate_reviews(self, record):
+    def generate_reviews(self, record, requester=None):
         self.ensure_one()
         model = self.env["ir.model"].sudo().search([("model", "=", record._name)], limit=1)
         vals_list = []
+        if requester is None:
+            user = self.env.user
+            requester = user if user and user.id != 1 else False
+        requester_uid = requester.id if requester else False
+
         forbidden_uids = self._get_document_requester_uids(record) if self.prevent_self_approval else set()
+        if self.prevent_self_approval and requester_uid:
+            forbidden_uids.add(requester_uid)
 
         for idx, approver in enumerate(self.approver_ids.sorted(lambda a: (a.sequence, a.id)), start=1):
             if approver.level_domain and approver.level_domain.strip() not in ("", "[]"):
@@ -647,6 +654,13 @@ class ApprovalMatrix(models.Model):
                 if approver.skip_if_empty:
                     _logger.info("approval.matrix %s: Level %s approver empty, skipped.", self.name, idx)
                     continue
+                if self.prevent_self_approval and forbidden_uids:
+                    forbidden_names = ", ".join(self.env["res.users"].browse(list(forbidden_uids)).mapped("name"))
+                    raise ValidationError(
+                        _("Maker-Checker Policy: Approval Matrix '%s' Level %d (%s) cannot be approved by the requester (%s), and no eligible fallback manager or alternate approver is available.\n"
+                          "Please assign an alternate approver or HR Direct Manager.")
+                        % (self.name, idx, approver.name or _("Level %d") % idx, forbidden_names)
+                    )
                 raise ValidationError(
                     _("Approval Matrix '%s' Level %d (%s) requires an approver, but no user could be determined.\n"
                       "Please ensure the department/direct manager or group is properly assigned, or contact your administrator.")
@@ -665,6 +679,7 @@ class ApprovalMatrix(models.Model):
                 "level_id": approver.id,
                 "sequence": idx,
                 "name": header_title,
+                "requested_by_id": requester_uid or False,
                 "approver_ids": [fields.Command.set(users.ids)],
                 "minimum_approved": max(1, min_app),
                 "status": "waiting",
