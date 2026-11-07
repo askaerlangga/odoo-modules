@@ -20,6 +20,7 @@ Table of Contents
 =================
 
 * `Key Features`_
+* `Enterprise Governance & Compliance`_
 * `Architecture & Performance Highlights`_
 * `Installation`_
 * `Configuration Guide`_
@@ -69,6 +70,43 @@ Each level in an approval matrix supports flexible resolution strategies:
 * **Interactive Comment & Rejection Wizard:** Prompts reviewers for mandatory rejection reasons or optional approval comments with automated chatter tracking and email notifications.
 * **Restart Validation:** When a document is rejected or revised, authorized users can restart validation, resetting review states without losing review audit history.
 * **Automated Confirmation:** Optional setting to auto-trigger document confirmation (e.g., ``button_confirm``) as soon as the final approval level is reached.
+
+----
+
+Enterprise Governance & Compliance
+==================================
+
+The module features a robust enterprise governance engine designed to enforce compliance, eliminate bottlenecks, and ensure institutional integrity across all workflows:
+
+1. Out-of-Office Approval Delegation (``approval.delegate``)
+-----------------------------------------------------------
+* **Seamless Stand-In Approvers:** Approvers taking leave or traveling can delegate approval authority to a designated colleague with strict active date windows (``date_from`` to ``date_to``).
+* **Flexible Matrix Scope:** Delegations can be applied globally across all assigned matrices or scoped specifically to selected approval matrices.
+* **Transparent Audit Trails:** When a substitute signs off, the audit log records *"Approved by [Substitute] on behalf of [Original Approver]"* with full chatter tracking.
+* **Self-Service Security:** Standard users can autonomously manage their own delegation rules via **Approvals > Management > Delegations** without requiring administrator privileges.
+
+2. Maker-Checker Policy & Segregation of Duties
+-----------------------------------------------
+* **Self-Approval Prevention (``prevent_self_approval``):** Enforces segregation of duties by blocking document creators (e.g., purchase requesters or sales reps) from approving their own records, preventing internal conflict of interest.
+* **Smart HR Manager Fallback:** If the document author is the only designated approver on an approval tier, the engine dynamically falls back to their **HR Direct Manager** (``employee_id.parent_id``) to ensure clearance without deadlocking the process.
+
+3. SLA Timeouts & Automated Escalation
+--------------------------------------
+* **Per-Tier SLA Deadlines:** Define resolution deadlines in hours (e.g., 24h, 48h) individually for each approval level.
+* **Automated Cron Actions (``ir.cron``):** When an approval level breaches its SLA window, the background scheduler automatically triggers configured policies:
+  * **Remind:** Sends urgent reminder notifications and scheduled activities to pending reviewers.
+  * **Escalate:** Escalates the pending review directly to the approver's HR manager or a designated escalation authority.
+  * **Auto-Approve / Bypass:** Automatically marks the level approved to prevent operational gridlock on non-critical administrative tiers.
+
+4. Send Back for Revision (``allow_send_back``)
+-----------------------------------------------
+* **Multi-Tier Revision Loops:** Level 2+ approvers in sequential matrices can return documents to an earlier approval level (e.g., Level 2 sends back to Level 1 or requester).
+* **Mandatory Revision Context:** Prompts the reviewer for explicit revision comments via an interactive wizard, updating the document state and notifying earlier reviewers with the required corrections.
+
+5. Mass & Bulk Decision Clearance
+---------------------------------
+* **Multi-Record Approval:** Department heads and executives can select multiple pending reviews in the **Pending Reviews** list view and execute batch **Approve** or **Reject** actions in one click.
+* **Batch Comment Dialog:** Supports applying standardized batch comments across all cleared documents simultaneously.
 
 ----
 
@@ -274,7 +312,7 @@ The approval engine provides optional lifecycle extension methods on any target 
 Automated Test Suite
 ====================
 
-The module comes with an automated test suite comprising **29 comprehensive test scenarios** located in ``tests/test_approval_matrix.py``:
+The module comes with an automated test suite comprising **36 comprehensive test scenarios** located in ``tests/test_approval_matrix.py``:
 
 1. Model metadata scanning and automated button extraction.
 2. Multi-tier sequential approval workflow and activation.
@@ -296,6 +334,22 @@ The module comes with an automated test suite comprising **29 comprehensive test
 18. Matrix priority sequence and domain fallback resolution.
 19. Systray pending counter and preview RPC data accuracy.
 20. Exclusion of already approved items from the active user's pending list.
+21. Out-of-office approval delegation resolution and substitute permission checks.
+22. Delegation expiration and matrix-specific scope filtering.
+23. Substitute approval execution with 'on behalf of' audit logging.
+24. Maker-checker policy enforcing self-approval prevention.
+25. Self-approval manager fallback when creator is sole level approver.
+26. Per-level SLA timeout evaluation and automated cron scheduler.
+27. SLA escalation to manager and auto-approve/bypass actions.
+28. Sequential revision loops with send back to earlier levels.
+29. Revision reason wizard validation and review state resetting.
+30. Mass / bulk approval action execution across multiple selected records.
+31. Mass / bulk rejection with batch comment validation.
+32. Model scanner button filtering with context-sensitive conditions.
+33. Multiple matrix match prioritization based on domain specificity.
+34. Real-time bus notification payloads for delegation state updates.
+35. Cascade deletion hygiene and integrity locks on active reviews.
+36. End-to-end full lifecycle integration test across all governance policies.
 
 Run the test suite using standard Odoo test commands:
 
