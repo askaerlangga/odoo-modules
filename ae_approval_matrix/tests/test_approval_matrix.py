@@ -1029,9 +1029,6 @@ class TestApprovalMatrix(TransactionCase):
         partner.with_user(self.user_requester).action_request_approval()
 
         # Before approval: approver_1 has 1 pending review, approver_2 has 0 (waiting)
-        count_u1 = self.env["res.users"].with_user(self.user_approver_1).get_approval_review_count()
-        self.assertEqual(count_u1, 1)
-
         data_u1 = self.env["res.users"].with_user(self.user_approver_1).get_pending_approval_reviews(limit=5)
         self.assertEqual(data_u1["count"], 1)
         self.assertEqual(len(data_u1["reviews"]), 1)
@@ -1042,8 +1039,6 @@ class TestApprovalMatrix(TransactionCase):
         self.assertTrue(bool(rev_item["time_ago"]))
 
         # Bystander has 0
-        count_bystander = self.env["res.users"].with_user(self.user_bystander).get_approval_review_count()
-        self.assertEqual(count_bystander, 0)
         data_bystander = self.env["res.users"].with_user(self.user_bystander).get_pending_approval_reviews()
         self.assertEqual(data_bystander["count"], 0)
         self.assertEqual(len(data_bystander["reviews"]), 0)
@@ -1053,15 +1048,11 @@ class TestApprovalMatrix(TransactionCase):
         rev1.with_user(self.user_approver_1).action_approve()
 
         # Now Approver 1 has 0 pending reviews
-        count_u1_after = self.env["res.users"].with_user(self.user_approver_1).get_approval_review_count()
-        self.assertEqual(count_u1_after, 0)
         data_u1_after = self.env["res.users"].with_user(self.user_approver_1).get_pending_approval_reviews()
         self.assertEqual(data_u1_after["count"], 0)
         self.assertEqual(len(data_u1_after["reviews"]), 0)
 
         # Approver 2 now has 1 pending review (level 2 became pending)
-        count_u2 = self.env["res.users"].with_user(self.user_approver_2).get_approval_review_count()
-        self.assertEqual(count_u2, 1)
         data_u2 = self.env["res.users"].with_user(self.user_approver_2).get_pending_approval_reviews()
         self.assertEqual(data_u2["count"], 1)
         self.assertEqual(len(data_u2["reviews"]), 1)
@@ -1161,8 +1152,8 @@ class TestApprovalMatrix(TransactionCase):
         partner.invalidate_recordset()
         partner.approval_review_ids.invalidate_recordset()
         self.assertTrue(partner.with_user(self.user_bystander).approval_user_can_approve)
-        bystander_count = self.env["res.users"].with_user(self.user_bystander).get_approval_review_count()
-        self.assertEqual(bystander_count, 1)
+        bystander_data = self.env["res.users"].with_user(self.user_bystander).get_pending_approval_reviews()
+        self.assertEqual(bystander_data["count"], 1)
 
         # 6. Bystander approves Level 1 on behalf of Approver 1
         partner.with_user(self.user_bystander).action_approve_matrix()

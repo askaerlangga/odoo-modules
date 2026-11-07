@@ -416,14 +416,6 @@ class ApprovalMatrix(models.Model):
             except Exception:
                 pass
 
-        views = self.env["ir.ui.view"].sudo().search([
-            ("model", "=", model_name),
-            ("type", "in", ("form", "list")),
-        ], limit=20)
-        for v in views:
-            if v.arch and v.arch not in arches:
-                arches.append(v.arch)
-
         ignored_btn_names = {
             "action_request_approval",
             "action_approve_matrix",
@@ -701,8 +693,6 @@ class ApprovalMatrixApprover(models.Model):
         readonly=True,
     )
     sequence = fields.Integer(string="Sequence", required=True, default=1)
-    level = fields.Integer(string="Level Number", compute="_compute_level")
-    level_display = fields.Char(string="Level", compute="_compute_level")
     name = fields.Char(string="Description")
     approver_type = fields.Selection(
         [
@@ -728,10 +718,6 @@ class ApprovalMatrixApprover(models.Model):
     )
     approver_summary = fields.Char(
         string="Assigned To",
-        compute="_compute_approver_summary",
-    )
-    quorum_display = fields.Char(
-        string="Approval Quorum",
         compute="_compute_approver_summary",
     )
     skip_if_empty = fields.Boolean(
@@ -799,18 +785,7 @@ class ApprovalMatrixApprover(models.Model):
             "context": dict(self.env.context, default_res_model=self.res_model),
         }
 
-    @api.depends("sequence", "matrix_id.approver_ids")
-    def _compute_level(self):
-        for matrix in self.mapped("matrix_id"):
-            for idx, line in enumerate(matrix.approver_ids, start=1):
-                line.level = idx
-                line.level_display = _("Level %d") % idx
-        for rec in self.filtered(lambda r: not r.matrix_id):
-            lvl = rec.sequence or 1
-            rec.level = lvl
-            rec.level_display = _("Level %d") % lvl
-
-    @api.depends("approver_type", "user_ids", "group_id", "require_all", "minimum_approved")
+    @api.depends("approver_type", "user_ids", "group_id")
     def _compute_approver_summary(self):
         for rec in self:
             if rec.approver_type == "users":
@@ -823,11 +798,6 @@ class ApprovalMatrixApprover(models.Model):
                 rec.approver_summary = _("Direct Manager (HR)")
             else:
                 rec.approver_summary = "-"
-
-            if rec.require_all:
-                rec.quorum_display = _("All Approvers")
-            else:
-                rec.quorum_display = _("Min. %d") % max(1, rec.minimum_approved)
 
     @api.depends("name", "sequence")
     def _compute_display_name(self):
@@ -882,7 +852,7 @@ class ApprovalMatrixApprover(models.Model):
     @api.constrains("minimum_approved", "require_all", "approver_type", "user_ids", "group_id", "skip_if_empty", "sla_hours")
     def _check_approver_config(self):
         for rec in self:
-            lvl = rec.level or rec.sequence
+            lvl = rec.sequence or 1
             if rec.approver_type == "users" and not rec.user_ids and not rec.skip_if_empty:
                 raise ValidationError(_("Level %d: Please select at least one approver user or enable 'Skip if Empty'.") % lvl)
             if rec.approver_type == "group" and not rec.group_id and not rec.skip_if_empty:

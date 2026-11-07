@@ -24,11 +24,6 @@ class ResUsers(models.Model):
         return candidates.filtered(lambda r: r.user_can_approve)
 
     @api.model
-    def get_approval_review_count(self):
-        """Returns the number of reviews currently pending action by the active user."""
-        return len(self._get_actionable_pending_reviews())
-
-    @api.model
     def get_pending_approval_reviews(self, limit=10):
         """Returns pending approval reviews and count for active user popup preview."""
         actionable = self._get_actionable_pending_reviews()
