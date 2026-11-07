@@ -184,6 +184,17 @@ class ApprovalMatrix(models.Model):
         default=False,
         help="If checked, clicking Approve prompts for a comment wizard. Otherwise, 1-click immediate approve.",
     )
+    prevent_self_approval = fields.Boolean(
+        string="Prevent Self-Approval (Maker-Checker)",
+        default=False,
+        help="Prevent the document creator or requester from approving their own document. "
+             "If they are the sole approver on a level, it automatically escalates to their HR Direct Manager.",
+    )
+    allow_send_back = fields.Boolean(
+        string="Allow Send Back to Previous Level",
+        default=True,
+        help="Allow approvers on Level 2+ (in sequential mode) to return the document to a previous level for revision.",
+    )
     user_request_field_id = fields.Many2one(
         "ir.model.fields",
         string="Requester / Employee User Field",
@@ -253,41 +264,10 @@ class ApprovalMatrix(models.Model):
                     "otherwise users cannot request approval."
                 ))
 
-    @api.constrains("name", "company_id")
-    def _check_name_company_unique(self):
-        for rec in self:
-            domain = [
-                ("name", "=", rec.name),
-                ("company_id", "=", rec.company_id.id),
-                ("id", "!=", rec.id),
-            ]
-            if self.search_count(domain) > 0:
-                raise ValidationError(_("Approval matrix name must be unique per company."))
-
     _name_company_unique = models.Constraint(
         "UNIQUE(name, company_id)",
         "Approval matrix name must be unique per company.",
     )
-
-    def _auto_init(self):
-        from odoo.tools.sql import constraint_definition, drop_constraint
-        # Drop legacy workflow constraints if they still exist in PostgreSQL
-        for table, con in [
-            ("approval_matrix", "approval_workflow_name_company_unique"),
-            ("approval_matrix_state_option", "approval_workflow_state_option_model_val_unique"),
-            ("approval_matrix_button_option", "approval_workflow_button_option_model_btn_unique"),
-        ]:
-            if constraint_definition(self.env.cr, table, con):
-                drop_constraint(self.env.cr, table, con)
-        self.env.cr.execute("""
-            DELETE FROM ir_model_constraint
-            WHERE name IN (
-                'approval_workflow_name_company_unique',
-                'approval_workflow_state_option_model_val_unique',
-                'approval_workflow_button_option_model_btn_unique'
-            )
-        """)
-        return super()._auto_init()
 
     # ─── Cache Management ───
     @api.model_create_multi
@@ -436,14 +416,6 @@ class ApprovalMatrix(models.Model):
             except Exception:
                 pass
 
-        views = self.env["ir.ui.view"].sudo().search([
-            ("model", "=", model_name),
-            ("type", "in", ("form", "list")),
-        ], limit=20)
-        for v in views:
-            if v.arch and v.arch not in arches:
-                arches.append(v.arch)
-
         ignored_btn_names = {
             "action_request_approval",
             "action_approve_matrix",
@@ -505,17 +477,7 @@ class ApprovalMatrix(models.Model):
     # ─── Domain Matching ───
     def matches(self, record):
         self.ensure_one()
-        domain_str = (self.manual_domain or "[]").strip()
-        if not domain_str or domain_str == "[]":
-            return True
-        try:
-            domain = literal_eval(domain_str)
-        except (ValueError, SyntaxError):
-            _logger.error("approval.matrix %s: cannot parse domain '%s'", self.name, domain_str)
-            return False
-        if not domain:
-            return True
-        return bool(record.filtered_domain(domain))
+        return bool(self._filter_matching_records(record))
 
     @api.model
     def find_matching_matrices(self, res_model, record, matrices=None):
@@ -620,10 +582,50 @@ class ApprovalMatrix(models.Model):
 
         return self.env["res.users"]
 
+    def _get_document_requester_uids(self, record):
+        """Return set of user IDs considered the maker/requester of ``record``."""
+        self.ensure_one()
+        uids = set()
+        if not record:
+            return uids
+        if self.user_request_field_id and self.user_request_field_id.name in record._fields:
+            val = record[self.user_request_field_id.name]
+            if val:
+                if self.user_request_field_id.relation == "hr.employee":
+                    if val.user_id:
+                        uids.add(val.user_id.id)
+                else:
+                    uids.add(val.id)
+        elif "user_id" in record._fields and record.user_id:
+            uids.add(record.user_id.id)
+
+        if hasattr(record, "create_uid") and record.create_uid:
+            uids.add(record.create_uid.id)
+        return uids
+
+    def _get_fallback_manager_for_users(self, user_ids):
+        """Resolve HR Direct Manager user(s) above ``user_ids`` (excluding ``user_ids`` themselves)."""
+        if not user_ids:
+            return self.env["res.users"]
+        forbidden = set(user_ids)
+        employees = self.env["hr.employee"].sudo().search([("user_id", "in", list(forbidden))])
+        fallback_users = self.env["res.users"]
+        for emp in employees:
+            visited = {emp.id}
+            parent = emp.parent_id
+            while parent and parent.id not in visited:
+                visited.add(parent.id)
+                if parent.user_id and parent.user_id.id not in forbidden and parent.user_id.active:
+                    fallback_users |= parent.user_id
+                    break
+                parent = parent.parent_id
+        return fallback_users
+
     def generate_reviews(self, record):
         self.ensure_one()
         model = self.env["ir.model"].sudo().search([("model", "=", record._name)], limit=1)
         vals_list = []
+        forbidden_uids = self._get_document_requester_uids(record) if self.prevent_self_approval else set()
 
         for idx, approver in enumerate(self.approver_ids.sorted(lambda a: (a.sequence, a.id)), start=1):
             if approver.level_domain and approver.level_domain.strip() not in ("", "[]"):
@@ -635,6 +637,12 @@ class ApprovalMatrix(models.Model):
                     pass
 
             users = self._resolve_approver_users(approver, record)
+            if forbidden_uids and users:
+                filtered_users = users.filtered(lambda u: u.id not in forbidden_uids)
+                if not filtered_users:
+                    filtered_users = self._get_fallback_manager_for_users(forbidden_uids)
+                users = filtered_users
+
             if not users:
                 if approver.skip_if_empty:
                     _logger.info("approval.matrix %s: Level %s approver empty, skipped.", self.name, idx)
@@ -642,14 +650,14 @@ class ApprovalMatrix(models.Model):
                 raise ValidationError(
                     _("Approval Matrix '%s' Level %d (%s) requires an approver, but no user could be determined.\n"
                       "Please ensure the department/direct manager or group is properly assigned, or contact your administrator.")
-                    % (self.name, idx, approver.name or approver.approval_header or _("Level %d") % idx)
+                    % (self.name, idx, approver.name or _("Level %d") % idx)
                 )
 
             min_app = approver.minimum_approved if not approver.require_all else len(users)
             if min_app > len(users):
                 min_app = len(users)
 
-            header_title = approver.name or approver.approval_header or approver._get_default_name() or (_("Level %d") % idx)
+            header_title = approver.name or approver._get_default_name() or (_("Level %d") % idx)
             vals_list.append({
                 "res_model_id": model.id,
                 "res_id": record.id,
@@ -657,7 +665,6 @@ class ApprovalMatrix(models.Model):
                 "level_id": approver.id,
                 "sequence": idx,
                 "name": header_title,
-                "approval_header": header_title,
                 "approver_ids": [fields.Command.set(users.ids)],
                 "minimum_approved": max(1, min_app),
                 "status": "waiting",
@@ -686,25 +693,7 @@ class ApprovalMatrixApprover(models.Model):
         readonly=True,
     )
     sequence = fields.Integer(string="Sequence", required=True, default=1)
-    level = fields.Integer(string="Level Number", compute="_compute_level")
-    level_display = fields.Char(string="Level", compute="_compute_level")
     name = fields.Char(string="Description")
-    approval_header = fields.Char(
-        string="Description (Legacy)",
-        compute="_compute_approval_header",
-        inverse="_inverse_approval_header",
-        store=True,
-    )
-
-    @api.depends("name")
-    def _compute_approval_header(self):
-        for rec in self:
-            rec.approval_header = rec.name
-
-    def _inverse_approval_header(self):
-        for rec in self:
-            if rec.approval_header:
-                rec.name = rec.approval_header
     approver_type = fields.Selection(
         [
             ("users", "Specific Users"),
@@ -731,10 +720,6 @@ class ApprovalMatrixApprover(models.Model):
         string="Assigned To",
         compute="_compute_approver_summary",
     )
-    quorum_display = fields.Char(
-        string="Approval Quorum",
-        compute="_compute_approver_summary",
-    )
     skip_if_empty = fields.Boolean(
         string="Skip if Empty",
         default=False,
@@ -749,6 +734,26 @@ class ApprovalMatrixApprover(models.Model):
         string="Min. Approvers Required",
         default=1,
         help="Minimum number of approvals needed for this level when Require All is disabled.",
+    )
+    sla_hours = fields.Float(
+        string="SLA (Hours)",
+        default=0.0,
+        help="Maximum hours allowed in Pending status before SLA action is triggered. Set 0 to disable.",
+    )
+    sla_action = fields.Selection(
+        [
+            ("remind", "Send Reminder"),
+            ("escalate", "Auto-Escalate to Manager / User"),
+            ("auto_approve", "Auto-Approve / Bypass Level"),
+        ],
+        string="SLA Action",
+        default="remind",
+        required=True,
+    )
+    sla_escalate_user_id = fields.Many2one(
+        "res.users",
+        string="Escalation User",
+        help="Optional target user for SLA escalation. If empty, escalates to the approver's HR Direct/Department Manager.",
     )
     level_domain = fields.Char(
         string="Level Threshold / Condition",
@@ -770,7 +775,7 @@ class ApprovalMatrixApprover(models.Model):
         if not self.id:
             raise UserError(_("Please save the approval matrix first before configuring level conditions."))
         return {
-            "name": _("Level Condition: %s") % (self.name or self.approval_header or _("Level %s") % (self.sequence or 1)),
+            "name": _("Level Condition: %s") % (self.name or _("Level %s") % (self.sequence or 1)),
             "type": "ir.actions.act_window",
             "res_model": "approval.matrix.approver",
             "res_id": self.id,
@@ -780,18 +785,7 @@ class ApprovalMatrixApprover(models.Model):
             "context": dict(self.env.context, default_res_model=self.res_model),
         }
 
-    @api.depends("sequence", "matrix_id.approver_ids")
-    def _compute_level(self):
-        for matrix in self.mapped("matrix_id"):
-            for idx, line in enumerate(matrix.approver_ids, start=1):
-                line.level = idx
-                line.level_display = _("Level %d") % idx
-        for rec in self.filtered(lambda r: not r.matrix_id):
-            lvl = rec.sequence or 1
-            rec.level = lvl
-            rec.level_display = _("Level %d") % lvl
-
-    @api.depends("approver_type", "user_ids", "group_id", "require_all", "minimum_approved")
+    @api.depends("approver_type", "user_ids", "group_id")
     def _compute_approver_summary(self):
         for rec in self:
             if rec.approver_type == "users":
@@ -804,28 +798,6 @@ class ApprovalMatrixApprover(models.Model):
                 rec.approver_summary = _("Direct Manager (HR)")
             else:
                 rec.approver_summary = "-"
-
-            if rec.require_all:
-                rec.quorum_display = _("All Approvers")
-            else:
-                rec.quorum_display = _("Min. %d") % max(1, rec.minimum_approved)
-
-    def _auto_init(self):
-        res = super()._auto_init()
-        self.env.cr.execute("""
-            DO $$
-            BEGIN
-                IF EXISTS (
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_name = 'approval_matrix_approver' AND column_name = 'approval_header'
-                ) THEN
-                    UPDATE approval_matrix_approver
-                    SET name = approval_header
-                    WHERE name IS NULL AND approval_header IS NOT NULL;
-                END IF;
-            END $$;
-        """)
-        return res
 
     @api.depends("name", "sequence")
     def _compute_display_name(self):
@@ -847,11 +819,8 @@ class ApprovalMatrixApprover(models.Model):
             return _("%s (+%d others)") % (names[0], len(names) - 1)
         return False
 
-    _get_default_header = _get_default_name
-
     @api.onchange("approver_type", "group_id", "user_ids")
     def _onchange_approver_type_and_targets(self):
-        current_title = self.name or self.approval_header
         auto_title = self._get_default_name()
         if auto_title:
             auto_prefixes = {
@@ -860,18 +829,11 @@ class ApprovalMatrixApprover(models.Model):
                 "Department Manager",
                 "Direct Manager",
             }
-            if not current_title or current_title in auto_prefixes:
+            if not self.name or self.name in auto_prefixes:
                 self.name = auto_title
-            elif not self.name and self.approval_header:
-                self.name = self.approval_header
-        elif not self.name and self.approval_header:
-            self.name = self.approval_header
 
     @api.model_create_multi
     def create(self, vals_list):
-        for vals in vals_list:
-            if not vals.get("name") and vals.get("approval_header"):
-                vals["name"] = vals["approval_header"]
         records = super().create(vals_list)
         for rec in records:
             if not rec.name:
@@ -887,13 +849,15 @@ class ApprovalMatrixApprover(models.Model):
         elif not self.minimum_approved:
             self.minimum_approved = 1
 
-    @api.constrains("minimum_approved", "require_all", "approver_type", "user_ids", "group_id", "skip_if_empty")
+    @api.constrains("minimum_approved", "require_all", "approver_type", "user_ids", "group_id", "skip_if_empty", "sla_hours")
     def _check_approver_config(self):
         for rec in self:
-            lvl = rec.level or rec.sequence
+            lvl = rec.sequence or 1
             if rec.approver_type == "users" and not rec.user_ids and not rec.skip_if_empty:
                 raise ValidationError(_("Level %d: Please select at least one approver user or enable 'Skip if Empty'.") % lvl)
             if rec.approver_type == "group" and not rec.group_id and not rec.skip_if_empty:
                 raise ValidationError(_("Level %d: Please select a Security Group or enable 'Skip if Empty'.") % lvl)
             if not rec.require_all and rec.minimum_approved <= 0:
                 raise ValidationError(_("Level %d: Minimum approvers required must be at least 1.") % lvl)
+            if rec.sla_hours and rec.sla_hours < 0:
+                raise ValidationError(_("Level %d: SLA hours cannot be negative.") % lvl)

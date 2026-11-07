@@ -5,10 +5,12 @@ import { evaluateBooleanExpr } from "@web/core/py_js/py";
 import { patch } from "@web/core/utils/patch";
 import { rpcBus } from "@web/core/network/rpc";
 
-// Invalidate web client disk cache for get_views whenever approval matrices are modified
+const UPDATE_METHODS = ["create", "write", "unlink"];
+
+// Invalidate web client disk cache for get_views only on actual record mutations
 rpcBus.addEventListener("RPC:RESPONSE", (ev) => {
     const params = ev.detail?.data?.params;
-    if (params?.model === "approval.matrix") {
+    if (params?.model === "approval.matrix" && UPDATE_METHODS.includes(params?.method)) {
         rpcBus.trigger("CLEAR-CACHES", "get_views");
     }
 });

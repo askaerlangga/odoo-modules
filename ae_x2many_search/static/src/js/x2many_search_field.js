@@ -363,26 +363,11 @@ export class X2ManySearchField extends X2ManyField {
         return this._fieldListCache;
     }
 
-    get dropdownSuggestions() {
-        if (!this.searchState.inputValue) {
-            return [];
-        }
-        return this.fieldList;
-    }
-
-    get groupByFields() {
-        return this.fieldList;
-    }
-
     get activeGroupLabel() {
         if (!this.groupState.activeField) {
             return null;
         }
         return this.fieldLabelMap[this.groupState.activeField] || this.groupState.activeField;
-    }
-
-    _getFieldLabel(fieldName) {
-        return this.fieldLabelMap[fieldName] || fieldName;
     }
 
     _getFilteredRecords() {
@@ -496,7 +481,7 @@ export class X2ManySearchField extends X2ManyField {
         this.searchState.activeFilter = {
             query,
             fieldName: fieldName || null,
-            fieldLabel: fieldName ? this._getFieldLabel(fieldName) : null,
+            fieldLabel: fieldName ? (this.fieldLabelMap[fieldName] || fieldName) : null,
         };
         this.searchState.inputValue = "";
         this.searchState.showDropdown = false;
@@ -531,7 +516,7 @@ export class X2ManySearchField extends X2ManyField {
             this.searchState.focusedIndex = -1;
             return;
         }
-        const suggestions = this.dropdownSuggestions;
+        const suggestions = this.searchState.inputValue ? this.fieldList : [];
         if (ev.key === "ArrowDown") {
             ev.preventDefault();
             this.searchState.showDropdown = true;
@@ -551,10 +536,6 @@ export class X2ManySearchField extends X2ManyField {
                 this._commitSearch(suggestions.length > 0 ? suggestions[0].fieldName : null);
             }
         }
-    }
-
-    onSelectField(fieldName) {
-        this._commitSearch(fieldName);
     }
 
     onClearFilter() {

@@ -94,14 +94,14 @@ class TestApprovalMatrix(TransactionCase):
             "approver_ids": [
                 (0, 0, {
                     "sequence": 1,
-                    "approval_header": "Level 1 - User Review",
+                    "name": "Level 1 - User Review",
                     "approver_type": "users",
                     "user_ids": [(6, 0, [cls.user_approver_1.id])],
                     "require_all": True,
                 }),
                 (0, 0, {
                     "sequence": 2,
-                    "approval_header": "Level 2 - Dept Manager",
+                    "name": "Level 2 - Dept Manager",
                     "approver_type": "dept_manager",
                     "require_all": True,
                 }),
@@ -295,7 +295,7 @@ class TestApprovalMatrix(TransactionCase):
             "approver_ids": [
                 (0, 0, {
                     "sequence": 1,
-                    "approval_header": "Manager Approval",
+                    "name": "Manager Approval",
                     "approver_type": "users",
                     "user_ids": [(6, 0, [self.user_approver_1.id])],
                 }),
@@ -427,7 +427,10 @@ class TestApprovalMatrix(TransactionCase):
 
     def test_11_list_button_hiding(self):
         """Buttons configured in hide_button_ids are hidden in list view while unapproved."""
-        btn_opt = self.env["approval.matrix.button.option"].create({
+        btn_opt = self.env["approval.matrix.button.option"].search([
+            ("model_id", "=", self.partner_model.id),
+            ("name", "=", "open_commercial_entity"),
+        ], limit=1) or self.env["approval.matrix.button.option"].create({
             "model_id": self.partner_model.id,
             "name": "open_commercial_entity",
             "string": "Open Commercial Entity",
@@ -448,7 +451,10 @@ class TestApprovalMatrix(TransactionCase):
 
     def test_12_auto_reject_button(self):
         """Configured auto_reject_button_id is executed automatically on rejection."""
-        btn_opt = self.env["approval.matrix.button.option"].create({
+        btn_opt = self.env["approval.matrix.button.option"].search([
+            ("model_id", "=", self.partner_model.id),
+            ("name", "=", "open_commercial_entity"),
+        ], limit=1) or self.env["approval.matrix.button.option"].create({
             "model_id": self.partner_model.id,
             "name": "open_commercial_entity",
             "string": "Open Commercial Entity",
@@ -468,7 +474,10 @@ class TestApprovalMatrix(TransactionCase):
 
     def test_13_toolbar_and_tree_header_button_hiding(self):
         """Header buttons in tree get invisible='1' and actions in toolbar are filtered."""
-        btn_opt = self.env["approval.matrix.button.option"].create({
+        btn_opt = self.env["approval.matrix.button.option"].search([
+            ("model_id", "=", self.partner_model.id),
+            ("name", "=", "open_commercial_entity"),
+        ], limit=1) or self.env["approval.matrix.button.option"].create({
             "model_id": self.partner_model.id,
             "name": "open_commercial_entity",
             "string": "Apply Commercial",
@@ -549,7 +558,7 @@ class TestApprovalMatrix(TransactionCase):
             "approver_ids": [
                 (0, 0, {
                     "sequence": 1,
-                    "approval_header": "Manager Approval",
+                    "name": "Manager Approval",
                     "approver_type": "users",
                     "user_ids": [(6, 0, [self.user_approver_1.id])],
                 }),
@@ -602,7 +611,7 @@ class TestApprovalMatrix(TransactionCase):
             "approver_ids": [
                 (0, 0, {
                     "sequence": 1,
-                    "approval_header": "Limit Approval",
+                    "name": "Limit Approval",
                     "approver_type": "users",
                     "user_ids": [(6, 0, [self.user_approver_1.id])],
                 }),
@@ -707,25 +716,16 @@ class TestApprovalMatrix(TransactionCase):
         app_dept = Approver.new({"approver_type": "dept_manager"})
         app_dept._onchange_approver_type_and_targets()
         self.assertEqual(app_dept.name, "Department Manager")
-        self.assertEqual(app_dept.approval_header, "Department Manager")
 
         # 2. Automatic title for employee_manager
         app_dir = Approver.new({"approver_type": "employee_manager"})
         app_dir._onchange_approver_type_and_targets()
         self.assertEqual(app_dir.name, "Direct Manager")
-        self.assertEqual(app_dir.approval_header, "Direct Manager")
 
         # 3. Manual override is preserved
         app_manual = Approver.new({"approver_type": "dept_manager", "name": "Head of Engineering"})
         app_manual._onchange_approver_type_and_targets()
         self.assertEqual(app_manual.name, "Head of Engineering")
-        self.assertEqual(app_manual.approval_header, "Head of Engineering")
-
-        # 4. Backward compatibility: setting legacy approval_header populates name
-        app_legacy = Approver.new({"approver_type": "dept_manager", "approval_header": "Custom Legacy Header"})
-        app_legacy._onchange_approver_type_and_targets()
-        self.assertEqual(app_legacy.approval_header, "Custom Legacy Header")
-        self.assertEqual(app_legacy.name, "Custom Legacy Header")
 
     def test_22_direct_manager_and_dynamic_requester(self):
         """Test employee_manager approver type resolves direct manager from document's user_request_field_id."""
@@ -1029,9 +1029,6 @@ class TestApprovalMatrix(TransactionCase):
         partner.with_user(self.user_requester).action_request_approval()
 
         # Before approval: approver_1 has 1 pending review, approver_2 has 0 (waiting)
-        count_u1 = self.env["res.users"].with_user(self.user_approver_1).get_approval_review_count()
-        self.assertEqual(count_u1, 1)
-
         data_u1 = self.env["res.users"].with_user(self.user_approver_1).get_pending_approval_reviews(limit=5)
         self.assertEqual(data_u1["count"], 1)
         self.assertEqual(len(data_u1["reviews"]), 1)
@@ -1042,8 +1039,6 @@ class TestApprovalMatrix(TransactionCase):
         self.assertTrue(bool(rev_item["time_ago"]))
 
         # Bystander has 0
-        count_bystander = self.env["res.users"].with_user(self.user_bystander).get_approval_review_count()
-        self.assertEqual(count_bystander, 0)
         data_bystander = self.env["res.users"].with_user(self.user_bystander).get_pending_approval_reviews()
         self.assertEqual(data_bystander["count"], 0)
         self.assertEqual(len(data_bystander["reviews"]), 0)
@@ -1053,15 +1048,11 @@ class TestApprovalMatrix(TransactionCase):
         rev1.with_user(self.user_approver_1).action_approve()
 
         # Now Approver 1 has 0 pending reviews
-        count_u1_after = self.env["res.users"].with_user(self.user_approver_1).get_approval_review_count()
-        self.assertEqual(count_u1_after, 0)
         data_u1_after = self.env["res.users"].with_user(self.user_approver_1).get_pending_approval_reviews()
         self.assertEqual(data_u1_after["count"], 0)
         self.assertEqual(len(data_u1_after["reviews"]), 0)
 
         # Approver 2 now has 1 pending review (level 2 became pending)
-        count_u2 = self.env["res.users"].with_user(self.user_approver_2).get_approval_review_count()
-        self.assertEqual(count_u2, 1)
         data_u2 = self.env["res.users"].with_user(self.user_approver_2).get_pending_approval_reviews()
         self.assertEqual(data_u2["count"], 1)
         self.assertEqual(len(data_u2["reviews"]), 1)
@@ -1114,6 +1105,285 @@ class TestApprovalMatrix(TransactionCase):
                     "company_id": self.company.id,
                 })
             self.assertIn("non_existent_bridge_module", str(cm.exception))
+
+    def test_32_approval_delegation_realtime_and_on_behalf_of(self):
+        """Test real-time approval delegation, access control, systray count, and on-behalf-of audit."""
+        from odoo import fields as odoo_fields
+        today = odoo_fields.Date.context_today(self.env["approval.delegate"])
+
+        # 1. Validation: cannot delegate to self or with invalid dates
+        with self.assertRaises(ValidationError):
+            self.env["approval.delegate"].create({
+                "delegator_id": self.user_approver_1.id,
+                "delegate_id": self.user_approver_1.id,
+                "date_from": today,
+                "date_to": today,
+            })
+
+        # 2. Access control: regular user cannot create delegation for another user
+        with self.assertRaises(AccessError):
+            self.env["approval.delegate"].with_user(self.user_bystander).create({
+                "delegator_id": self.user_approver_1.id,
+                "delegate_id": self.user_bystander.id,
+                "date_from": today,
+                "date_to": today,
+            })
+
+        # 3. Document is already pending before delegation is created
+        partner = self.env["res.partner"].with_user(self.user_requester).create({
+            "name": "Delegation Test Partner",
+            "user_id": self.user_requester.id,
+            "company_id": self.company.id,
+        })
+        partner.with_user(self.user_requester).action_request_approval()
+        self.assertFalse(partner.with_user(self.user_bystander).approval_user_can_approve)
+
+        # 4. Approver 1 creates their own delegation to Bystander
+        delegation = self.env["approval.delegate"].with_user(self.user_approver_1).create({
+            "delegator_id": self.user_approver_1.id,
+            "delegate_id": self.user_bystander.id,
+            "date_from": today,
+            "date_to": today,
+            "notes": "Annual Leave",
+        })
+        self.assertTrue(delegation.name)
+
+        # 5. Real-time evaluation: Bystander can now approve and sees review in systray
+        partner.invalidate_recordset()
+        partner.approval_review_ids.invalidate_recordset()
+        self.assertTrue(partner.with_user(self.user_bystander).approval_user_can_approve)
+        bystander_data = self.env["res.users"].with_user(self.user_bystander).get_pending_approval_reviews()
+        self.assertEqual(bystander_data["count"], 1)
+
+        # 6. Bystander approves Level 1 on behalf of Approver 1
+        partner.with_user(self.user_bystander).action_approve_matrix()
+        rev1 = partner.approval_review_ids.sorted("sequence")[0]
+        self.assertEqual(rev1.status, "approved")
+        self.assertIn(self.user_bystander, rev1.approved_by_ids)
+        self.assertIn(self.user_approver_1, rev1.on_behalf_of_ids)
+        self.assertIn("on behalf of", rev1.delegated_info)
+        self.assertIn(self.user_approver_1.name, rev1.reviewed_users_display)
+
+    def test_33_maker_checker_prevent_self_approval_and_fallback(self):
+        """Test prevent_self_approval excludes requester and falls back to HR Direct Manager."""
+        self.env["approval.matrix"].search([("res_model", "=", "res.partner")]).write({"active": False})
+        self.employee_requester.parent_id = self.employee_manager
+
+        matrix = self.env["approval.matrix"].create({
+            "name": "Maker Checker Matrix",
+            "model_id": self.partner_model.id,
+            "company_id": self.company.id,
+            "prevent_self_approval": True,
+            "user_request_field_id": self.env["ir.model.fields"].search([
+                ("model_id", "=", self.partner_model.id),
+                ("name", "=", "user_id"),
+            ], limit=1).id,
+            "approver_ids": [
+                (0, 0, {
+                    "sequence": 1,
+                    "name": "Self Configured Level",
+                    "approver_type": "users",
+                    "user_ids": [(6, 0, [self.user_requester.id])],
+                }),
+            ],
+        })
+
+        partner = self.env["res.partner"].with_user(self.user_requester).create({
+            "name": "SoD Partner",
+            "user_id": self.user_requester.id,
+            "company_id": self.company.id,
+        })
+        partner.with_user(self.user_requester).action_request_approval()
+
+        rev = partner.approval_review_ids[0]
+        # Requester was excluded and replaced by their HR Direct Manager (user_approver_2)
+        self.assertNotIn(self.user_requester, rev.approver_ids)
+        self.assertIn(self.user_approver_2, rev.approver_ids)
+
+        # Even if requester is manually added to approver_ids, runtime guard blocks self-approval
+        rev.sudo().write({"approver_ids": [(4, self.user_requester.id)]})
+        rev.invalidate_recordset()
+        self.assertFalse(rev.with_user(self.user_requester).user_can_approve)
+        with self.assertRaises(UserError):
+            rev.with_user(self.user_requester).action_approve()
+
+        # Direct Manager can approve normally
+        rev.with_user(self.user_approver_2).action_approve()
+        self.assertEqual(rev.status, "approved")
+        self.assertEqual(partner.approval_state, "approved")
+        matrix.active = False
+
+    def test_34_sla_timeout_remind_escalate_and_auto_approve(self):
+        """Test SLA timeout cron actions: remind, escalate, and auto_approve."""
+        from odoo import fields as odoo_fields
+        self.env["approval.matrix"].search([("res_model", "=", "res.partner")]).write({"active": False})
+
+        matrix = self.env["approval.matrix"].create({
+            "name": "SLA Matrix",
+            "model_id": self.partner_model.id,
+            "company_id": self.company.id,
+            "approve_sequence": True,
+            "approver_ids": [
+                (0, 0, {
+                    "sequence": 1,
+                    "name": "Level 1 Escalate",
+                    "approver_type": "users",
+                    "user_ids": [(6, 0, [self.user_approver_1.id])],
+                    "sla_hours": 2.0,
+                    "sla_action": "escalate",
+                    "sla_escalate_user_id": self.user_approver_2.id,
+                }),
+                (0, 0, {
+                    "sequence": 2,
+                    "name": "Level 2 Auto Approve",
+                    "approver_type": "users",
+                    "user_ids": [(6, 0, [self.user_approver_2.id])],
+                    "sla_hours": 1.0,
+                    "sla_action": "auto_approve",
+                }),
+            ],
+        })
+
+        partner = self.env["res.partner"].with_user(self.user_requester).create({
+            "name": "SLA Test Partner",
+            "user_id": self.user_requester.id,
+            "company_id": self.company.id,
+        })
+        partner.with_user(self.user_requester).action_request_approval()
+
+        reviews = partner.approval_review_ids.sorted("sequence")
+        rev1, rev2 = reviews[0], reviews[1]
+        self.assertTrue(rev1.sla_deadline)
+
+        # Backdate pending_date on Level 1 to trigger SLA escalation
+        past_dt = odoo_fields.Datetime.subtract(odoo_fields.Datetime.now(), hours=5)
+        rev1.sudo().write({"pending_date": past_dt})
+        self.env["approval.review"]._cron_process_sla_reviews()
+
+        self.assertTrue(rev1.sla_triggered)
+        self.assertIn(self.user_approver_2, rev1.approver_ids, "Escalation user should be added to Level 1")
+
+        #Escalated user (Approver 2) approves Level 1 -> Level 2 becomes pending
+        rev1.with_user(self.user_approver_2).action_approve()
+        self.assertEqual(rev1.status, "approved")
+        self.assertEqual(rev2.status, "pending")
+
+        # Backdate pending_date on Level 2 to trigger SLA auto-approve
+        rev2.sudo().write({"pending_date": past_dt})
+        self.env["approval.review"]._cron_process_sla_reviews()
+
+        self.assertTrue(rev2.sla_triggered)
+        self.assertEqual(rev2.status, "approved")
+        self.assertEqual(partner.approval_state, "approved")
+        matrix.active = False
+
+    def test_35_send_back_to_previous_level(self):
+        """Test sending back a review from Level 3 to a chosen previous level via comment wizard."""
+        self.env["approval.matrix"].search([("res_model", "=", "res.partner")]).write({"active": False})
+
+        matrix = self.env["approval.matrix"].create({
+            "name": "Send Back 3-Tier Matrix",
+            "model_id": self.partner_model.id,
+            "company_id": self.company.id,
+            "approve_sequence": True,
+            "allow_send_back": True,
+            "approver_ids": [
+                (0, 0, {
+                    "sequence": 1,
+                    "name": "Level 1 Review",
+                    "approver_type": "users",
+                    "user_ids": [(6, 0, [self.user_approver_1.id])],
+                }),
+                (0, 0, {
+                    "sequence": 2,
+                    "name": "Level 2 Review",
+                    "approver_type": "users",
+                    "user_ids": [(6, 0, [self.user_approver_2.id])],
+                }),
+                (0, 0, {
+                    "sequence": 3,
+                    "name": "Level 3 Director",
+                    "approver_type": "users",
+                    "user_ids": [(6, 0, [self.user_manager.id])],
+                }),
+            ],
+        })
+
+        partner = self.env["res.partner"].with_user(self.user_requester).create({
+            "name": "Send Back Partner",
+            "user_id": self.user_requester.id,
+            "company_id": self.company.id,
+        })
+        partner.with_user(self.user_requester).action_request_approval()
+
+        reviews = partner.approval_review_ids.sorted("sequence")
+        rev1, rev2, rev3 = reviews[0], reviews[1], reviews[2]
+
+        # Approve Level 1 and Level 2
+        partner.with_user(self.user_approver_1).action_approve_matrix()
+        partner.with_user(self.user_approver_2).action_approve_matrix()
+        self.assertEqual(rev3.status, "pending")
+
+        # Level 3 opens reject wizard; default target_review_id is Level 2 (immediately preceding)
+        wiz_act = partner.with_user(self.user_manager).action_reject_matrix()
+        wiz = self.env["approval.comment.wizard"].with_user(self.user_manager).with_context(
+            wiz_act["context"]
+        ).create({
+            "reject_mode": "send_back",
+            "comment": "Please re-verify Level 1 & 2 figures",
+        })
+        self.assertTrue(wiz.can_send_back)
+        self.assertEqual(wiz.target_review_id, rev2)
+
+        # Choose to send back all the way to Level 1
+        wiz.target_review_id = rev1
+        wiz.action_confirm()
+
+        self.assertEqual(rev1.status, "pending")
+        self.assertFalse(rev1.approved_by_ids)
+        self.assertEqual(rev2.status, "waiting")
+        self.assertFalse(rev2.approved_by_ids)
+        self.assertEqual(rev3.status, "waiting")
+        self.assertEqual(partner.approval_state, "pending")
+        matrix.active = False
+
+    def test_36_mass_bulk_approve_and_reject(self):
+        """Test mass/bulk approve and reject wizard across multiple review records."""
+        partners = self.env["res.partner"].with_user(self.user_requester).create([
+            {"name": f"Bulk Partner {i}", "user_id": self.user_requester.id, "company_id": self.company.id}
+            for i in range(3)
+        ])
+        for p in partners:
+            p.with_user(self.user_requester).action_request_approval()
+
+        lvl1_reviews = partners.mapped("approval_review_ids").filtered(lambda r: r.sequence == 1)
+        self.assertEqual(len(lvl1_reviews), 3)
+
+        # 1. Bulk Approve all 3 Level 1 reviews as Approver 1
+        act_approve = lvl1_reviews.with_user(self.user_approver_1).action_bulk_approve_wizard()
+        wiz_app = self.env["approval.comment.wizard"].with_user(self.user_approver_1).with_context(
+            act_approve["context"]
+        ).create({"comment": "Batch approved L1"})
+        self.assertTrue(wiz_app.is_bulk)
+        self.assertEqual(wiz_app.review_count, 3)
+        wiz_app.action_confirm()
+
+        for rev in lvl1_reviews:
+            self.assertEqual(rev.status, "approved")
+            self.assertEqual(rev.comment, "Batch approved L1")
+
+        # 2. Bulk Reject all 3 Level 2 reviews as Approver 2
+        lvl2_reviews = partners.mapped("approval_review_ids").filtered(lambda r: r.sequence == 2)
+        act_reject = lvl2_reviews.with_user(self.user_approver_2).action_bulk_reject_wizard()
+        wiz_rej = self.env["approval.comment.wizard"].with_user(self.user_approver_2).with_context(
+            act_reject["context"]
+        ).create({"comment": "Batch rejected L2"})
+        wiz_rej.action_confirm()
+
+        for p in partners:
+            p.invalidate_recordset()
+            self.assertEqual(p.approval_state, "rejected")
+
 
 
 

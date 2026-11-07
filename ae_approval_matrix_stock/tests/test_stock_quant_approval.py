@@ -53,7 +53,7 @@ class TestStockQuantApproval(TransactionCase):
             "approver_ids": [
                 (0, 0, {
                     "sequence": 1,
-                    "approval_header": "WH Manager Review",
+                    "name": "WH Manager Review",
                     "approver_type": "users",
                     "user_ids": [(6, 0, [cls.user_approver.id])],
                 }),

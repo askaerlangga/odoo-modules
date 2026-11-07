@@ -11,4 +11,6 @@ access_approval_review_user,approval.review.user,model_approval_review,base.grou
 access_approval_review_manager,approval.review.manager,model_approval_review,group_approval_manager,1,1,1,1
 access_approval_exception_user,approval.exception.user,model_approval_exception,base.group_user,1,0,0,0
 access_approval_exception_manager,approval.exception.manager,model_approval_exception,group_approval_manager,1,1,1,1
+access_approval_delegate_user,approval.delegate.user,model_approval_delegate,base.group_user,1,1,1,0
+access_approval_delegate_manager,approval.delegate.manager,model_approval_delegate,group_approval_manager,1,1,1,1
 access_approval_comment_wizard,approval.comment.wizard,model_approval_comment_wizard,base.group_user,1,1,1,1
