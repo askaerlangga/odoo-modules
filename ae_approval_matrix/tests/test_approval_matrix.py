@@ -427,7 +427,10 @@ class TestApprovalMatrix(TransactionCase):
 
     def test_11_list_button_hiding(self):
         """Buttons configured in hide_button_ids are hidden in list view while unapproved."""
-        btn_opt = self.env["approval.matrix.button.option"].create({
+        btn_opt = self.env["approval.matrix.button.option"].search([
+            ("model_id", "=", self.partner_model.id),
+            ("name", "=", "open_commercial_entity"),
+        ], limit=1) or self.env["approval.matrix.button.option"].create({
             "model_id": self.partner_model.id,
             "name": "open_commercial_entity",
             "string": "Open Commercial Entity",
@@ -448,7 +451,10 @@ class TestApprovalMatrix(TransactionCase):
 
     def test_12_auto_reject_button(self):
         """Configured auto_reject_button_id is executed automatically on rejection."""
-        btn_opt = self.env["approval.matrix.button.option"].create({
+        btn_opt = self.env["approval.matrix.button.option"].search([
+            ("model_id", "=", self.partner_model.id),
+            ("name", "=", "open_commercial_entity"),
+        ], limit=1) or self.env["approval.matrix.button.option"].create({
             "model_id": self.partner_model.id,
             "name": "open_commercial_entity",
             "string": "Open Commercial Entity",
@@ -468,7 +474,10 @@ class TestApprovalMatrix(TransactionCase):
 
     def test_13_toolbar_and_tree_header_button_hiding(self):
         """Header buttons in tree get invisible='1' and actions in toolbar are filtered."""
-        btn_opt = self.env["approval.matrix.button.option"].create({
+        btn_opt = self.env["approval.matrix.button.option"].search([
+            ("model_id", "=", self.partner_model.id),
+            ("name", "=", "open_commercial_entity"),
+        ], limit=1) or self.env["approval.matrix.button.option"].create({
             "model_id": self.partner_model.id,
             "name": "open_commercial_entity",
             "string": "Apply Commercial",
